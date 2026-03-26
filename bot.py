@@ -85,7 +85,7 @@ async def daily_task(channel):
     KST = timezone(timedelta(hours=9))
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=13, minute=57, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=14, minute=13, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
@@ -97,6 +97,8 @@ async def daily_task(channel):
         players = get_top_players()
         if players:
             await send_ranking_in_chunks(channel, players, "Local Ranking 🇰🇷")
+
+        print(f"[{datetime.now(KST).strftime('%Y-%m-%d %H:%M:%S')}] 모든 랭킹 전송 완료!")
         await asyncio.sleep(60)
 
 '''async def minute_task(channel):
