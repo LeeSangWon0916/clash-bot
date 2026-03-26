@@ -65,42 +65,39 @@ def get_clan_members(clan_tag):
         return []
 
 # --- 임베드 및 하이라이트 적용 함수 ---
-async def send_ranking_in_chunks(channel, players, title):
+async def send_ranking_in_chunks(channel, players, title, is_clan_channel=False):
     if not players:
         return
 
-    # 한 카드(Embed)당 10명씩 담는 것이 가장 깔끔함
     chunk_size = 25
     for i in range(0, len(players), chunk_size):
         chunk = players[i : i + chunk_size]
         
         embed = discord.Embed(
             title=f"🏆 {title}",
-            description=f"순위 {i+1}위 ~ {i+len(chunk)}위",
-            color=0x1ABC9C, # 청록색 테두리
+            color=0x1ABC9C,
             timestamp=datetime.now()
         )
 
         for p in chunk:
             player_name = p['name']
-            rank_val = p['rank']  # 1, 2, 3...
+            rank_val = p['rank']
             trophy_val = p['trophies']
             clan_name = p.get("clan", {}).get("name", "")
             
             if "백의" in clan_name:
-                # ⭐ 백의 클랜원: 한 줄 박스 (노란색 글씨)
-                # field_name은 비우고 value에 몰아넣어서 박스 높이를 최소화함
+                # ⭐ 백의 인원: 노란색 글씨 (배경 박스 생성됨)
+                # 한 줄로 표현하기 위해 value에 박스를 몰아넣음
                 field_name = "\u200b" 
-                field_value = f"```fix\n⭐ {rank_val}  {player_name}  ({trophy_val})\n```"
+                field_value = f"```fix\n⭐ {rank_val}  {player_name} ({trophy_val})\n```"
             else:
-                # 🔹 일반 스타일: 박스 없는 한 줄
-                field_name = f"🔹 {rank_val}  {player_name}  ({trophy_val})"
+                # 🔹 일반 인원: 박스 없는 기본 텍스트
+                field_name = f"🔹 {rank_val}  {player_name} ({trophy_val})"
                 field_value = "\u200b"
 
+            # inline=False를 써야 한 줄씩 차지함
             embed.add_field(name=field_name, value=field_value, inline=False)
 
-        embed.set_footer(text="Clash of Clans Ranking System", icon_url=client.user.avatar.url if client.user.avatar else None)
-        
         await channel.send(embed=embed)
         await asyncio.sleep(0.8) # 속도 제한 방지
 
@@ -108,7 +105,7 @@ async def daily_task(channel_a, channel_b):
     KST = timezone(timedelta(hours=9))
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=23, minute=37, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=23, minute=48, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
