@@ -86,7 +86,7 @@ async def daily_task(channel):
     KST = timezone(timedelta(hours=9))
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=12, minute=33, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=12, minute=38, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
