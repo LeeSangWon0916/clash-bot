@@ -7,7 +7,7 @@ import os
 from dotenv import load_dotenv
 from datetime import datetime, timedelta, timezone
 
-# --- 서버 및 설정 부분 (동일) ---
+# --- 서버 설정 (Koyeb 유지용) ---
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -29,65 +29,75 @@ intents = discord.Intents.default()
 intents.message_content = True
 client = discord.Client(intents=intents)
 
-# --- 1. get_top_players: '글자'가 아니라 '리스트'를 반환하도록 수정 ---
 def get_top_players():
     url = "https://api.clashofclans.com/v1/locations/32000216/rankings/players"
     headers = {"Authorization": f"Bearer {API_KEY}"}
-    
     try:
         res = requests.get(url, headers=headers)
-        if res.status_code != 200:
-            print("API 실패:", res.text)
-            return []  # 에러 시 빈 리스트 반환
-        
-        data = res.json()
-        return data.get("items", [])  # 순수 리스트만 반환
+        if res.status_code == 200:
+            return res.json().get("items", [])
+        return []
     except Exception as e:
-        print(f"네트워크 오류: {e}")
+        print(f"API 오류: {e}")
         return []
 
-# --- 2. send_ranking_in_chunks: @client.event 데코레이터 삭제 (일반 함수임) ---
+# --- 임베드 및 하이라이트 적용 함수 ---
 async def send_ranking_in_chunks(channel, players, title):
     if not players:
         return
-    
-    chunk_size = 50
+
+    # 한 카드(Embed)당 10명씩 담는 것이 가장 깔끔함
+    chunk_size = 50 
     for i in range(0, len(players), chunk_size):
         chunk = players[i : i + chunk_size]
-        msg = f"📊 **{title} ({i+1}~{i+len(chunk)})**\n"
         
-        for p in chunk:
-            line = f'{p["rank"]}. {p["name"]} - {p["trophies"]}🏆\n'
-            if len(msg) + len(line) > 1950:
-                await channel.send(msg)
-                msg = "" 
-            msg += line
-        
-        if msg:
-            await channel.send(msg)
-        await asyncio.sleep(1)
+        embed = discord.Embed(
+            title=f"🏆 {title}",
+            description=f"순위 {i+1}위 ~ {i+len(chunk)}위",
+            color=0x1ABC9C, # 청록색 테두리
+            timestamp=datetime.now()
+        )
 
-# --- 3. Task 함수들 수정 ---
+        for p in chunk:
+            clan_info = p.get("clan", {})
+            clan_name = clan_info.get("name", "클랜 없음")
+            player_name = p['name']
+            
+            # 🔥 하이라이트 로직: 클랜명에 '백의'가 포함되면 특별 표시
+            if "백의" in clan_name:
+                display_name = f"⭐ **{player_name} (하이라이트)**"
+                field_value = f"🏰 **Clan:** __**{clan_name}**__\n🏆 **Trophies:** **{p['trophies']}**"
+            else:
+                display_name = f"No.{p['rank']} {player_name}"
+                field_value = f"🏰 **Clan:** {clan_name}\n🏆 **Trophies:** {p['trophies']}"
+
+            embed.add_field(
+                name=display_name,
+                value=field_value,
+                inline=False
+            )
+
+        embed.set_footer(text="Clash of Clans Ranking System", icon_url=client.user.avatar.url if client.user.avatar else None)
+        
+        await channel.send(embed=embed)
+        await asyncio.sleep(0.8) # 속도 제한 방지
+
 async def daily_task(channel):
     KST = timezone(timedelta(hours=9))
     while True:
         now_kst = datetime.now(KST)
-        # 시간 설정을 다시 13:58로 맞추거나 테스트용 시간으로 유지
-        target_time = now_kst.replace(hour=12, minute=20, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=12, minute=33, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
 
         wait_seconds = (target_time - now_kst).total_seconds()
         print(f"[예약] 다음 정기 출력까지 {int(wait_seconds)}초 대기")
-        
         await asyncio.sleep(wait_seconds)
         
         players = get_top_players()
         if players:
             await send_ranking_in_chunks(channel, players, "정기 랭킹 알림 (13:58)")
-            print("정기 전송 완료")
-        
         await asyncio.sleep(60)
 
 async def minute_task(channel):
@@ -95,13 +105,10 @@ async def minute_task(channel):
         try:
             players = get_top_players()
             if players:
-                now_str = datetime.now().strftime('%H:%M:%S')
-                # 테스트용이니 상위 10명만 보내려면 [:10]
+                # 테스트 시 상위 10명만 카드로 전송
                 await send_ranking_in_chunks(channel, players[:10], "1분 단위 체크")
-                print(f"{now_str} 1분 체크 전송 완료")
         except Exception as e:
             print(f"1분 체크 오류: {e}")
-            
         await asyncio.sleep(60)
 
 @client.event
