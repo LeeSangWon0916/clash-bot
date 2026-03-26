@@ -59,23 +59,22 @@ async def send_ranking_in_chunks(channel, players, title):
         )
 
         for p in chunk:
-            clan_info = p.get("clan", {})
-            clan_name = clan_info.get("name", "클랜 없음")
+            clan_name = p.get("clan", {}).get("name", "N/A")
             player_name = p['name']
+            rank_str = f"{p['rank']:03d}"
+            trophy_str = f"{p['trophies']}"
             
-            # 🔥 하이라이트 로직: 클랜명에 '백의'가 포함되면 특별 표시
             if "백의" in clan_name:
-                display_name = f"⭐ **{player_name} (하이라이트)**"
-                field_value = f"🏰 **Clan:** __**{clan_name}**__\n🏆 **Trophies:** **{p['trophies']}**"
+                # 노란색 형광펜 스타일 (fix 문법)
+                # 이름은 위에 굵게 표시하고, 아래 정보를 노란색 박스에 넣음
+                field_name = f"⭐ **{player_name} (백의)**"
+                field_value = f"```fix\n{rank_str}  {trophy_str}  [{clan_name}]\n```"
             else:
-                display_name = f"No.{p['rank']} {player_name}"
-                field_value = f"🏰 **Clan:** {clan_name}\n🏆 **Trophies:** {p['trophies']}"
+                # 일반 스타일
+                field_name = f"🔹 `{rank_str}` `{trophy_str}` {player_name}"
+                field_value = f"┕ `[{clan_name}]`"
 
-            embed.add_field(
-                name=display_name,
-                value=field_value,
-                inline=False
-            )
+            embed.add_field(name=field_name, value=field_value, inline=False)
 
         embed.set_footer(text="Clash of Clans Ranking System", icon_url=client.user.avatar.url if client.user.avatar else None)
         
@@ -86,7 +85,7 @@ async def daily_task(channel):
     KST = timezone(timedelta(hours=9))
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=12, minute=46, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=12, minute=57, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
