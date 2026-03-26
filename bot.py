@@ -19,7 +19,7 @@ import requests
 import asyncio
 import os
 from dotenv import load_dotenv
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 load_dotenv()
 
@@ -66,31 +66,23 @@ async def on_ready():
     print(f"Logged in as {client.user}")
     channel = await client.fetch_channel(CHANNEL_ID)
 
-    while True:
-        now = datetime.now()
-        # 목표 시간 설정 (오늘 13시 58분 00초)
-        target_time = now.replace(hour=11, minute=57, second=0, microsecond=0)
+    # 한국 시간대 정의 (UTC+9)
+    KST = timezone(timedelta(hours=9))
 
-        # 만약 이미 오늘 13시 58분이 지났다면, 내일 13시 58분으로 설정
-        if now >= target_time:
+    while True:
+        # 현재 한국 시간 가져오기
+        now_kst = datetime.now(KST)
+        
+        # 오늘 오후 1시 58분(KST) 설정
+        target_time = now_kst.replace(hour=12, minute=0, second=0, microsecond=0)
+
+        # 이미 지났으면 내일로 설정
+        if now_kst >= target_time:
             target_time += timedelta(days=1)
 
-        # 다음 목표 시간까지 대기해야 할 초(seconds) 계산
-        wait_seconds = (target_time - now).total_seconds()
-        print(f"다음 출력 시간까지 {wait_seconds}초 대기합니다. (목표: {target_time})")
+        wait_seconds = (target_time - now_kst).total_seconds()
+        print(f"다음 출력까지 {int(wait_seconds)}초 대기 (목표: {target_time.strftime('%Y-%m-%d %H:%M:%S')} KST)")
 
-        # 목표 시간까지 대기
         await asyncio.sleep(wait_seconds)
-
-        # 랭킹 출력 실행
-        try:
-            msg = get_top_players()
-            await channel.send(msg)
-            print(f"[{datetime.now()}] 랭킹 정보 전송 완료")
-        except Exception as e:
-            print("전송 중 오류 발생:", e)
-
-        # 전송 후 바로 다시 루프가 돌면 1초 차이로 중복 전송될 수 있으니 잠시 대기
-        await asyncio.sleep(60)
 
 client.run(TOKEN)
