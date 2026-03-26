@@ -47,7 +47,7 @@ async def send_ranking_in_chunks(channel, players, title):
         return
 
     # 한 카드(Embed)당 10명씩 담는 것이 가장 깔끔함
-    chunk_size = 20 
+    chunk_size = 25
     for i in range(0, len(players), chunk_size):
         chunk = players[i : i + chunk_size]
         
@@ -86,7 +86,7 @@ async def daily_task(channel):
     KST = timezone(timedelta(hours=9))
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=12, minute=38, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=12, minute=46, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
@@ -97,10 +97,10 @@ async def daily_task(channel):
         
         players = get_top_players()
         if players:
-            await send_ranking_in_chunks(channel, players, "정기 랭킹 알림 (13:58)")
+            await send_ranking_in_chunks(channel, players, "Local Ranking 🇰🇷")
         await asyncio.sleep(60)
 
-async def minute_task(channel):
+'''async def minute_task(channel):
     while True:
         try:
             players = get_top_players()
@@ -109,14 +109,14 @@ async def minute_task(channel):
                 await send_ranking_in_chunks(channel, players[:10], "1분 단위 체크")
         except Exception as e:
             print(f"1분 체크 오류: {e}")
-        await asyncio.sleep(60)
+        await asyncio.sleep(60)'''
 
 @client.event
 async def on_ready():
     print(f"Logged in as {client.user}")
     channel = await client.fetch_channel(CHANNEL_ID)
     asyncio.create_task(daily_task(channel))
-    asyncio.create_task(minute_task(channel))
+    # asyncio.create_task(minute_task(channel))
     print("모든 자동화 작업이 시작되었습니다.")
 
 client.run(TOKEN)
