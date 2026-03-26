@@ -1,7 +1,26 @@
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"OK")
+
+def run_server():
+    server = HTTPServer(('0.0.0.0', 8000), Handler)
+    server.serve_forever()
+
+# 🔥 이 줄 추가
+threading.Thread(target=run_server).start()
+
 import discord
 import requests
 import asyncio
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 TOKEN = os.environ["DISCORD_TOKEN"]
 API_KEY = os.environ["CLASH_API_KEY"]
