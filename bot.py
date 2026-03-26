@@ -69,16 +69,13 @@ async def send_ranking_in_chunks(channel, players, title, is_clan_channel=False)
     if not players:
         return
 
+    # 한 번에 보낼 인원 수 (25명 정도가 임베드 크기에 적당해)
     chunk_size = 25
     for i in range(0, len(players), chunk_size):
         chunk = players[i : i + chunk_size]
         
-        embed = discord.Embed(
-            title=f"🏆 {title}",
-            color=0x1ABC9C,
-            timestamp=datetime.now()
-        )
-
+        # 모든 인원을 하나의 리스트에 담아서 줄바꿈으로 합칠 거야
+        ranking_lines = []
         for p in chunk:
             player_name = p['name']
             rank_val = p['rank']
@@ -86,26 +83,30 @@ async def send_ranking_in_chunks(channel, players, title, is_clan_channel=False)
             clan_name = p.get("clan", {}).get("name", "")
             
             if "백의" in clan_name:
-                # ⭐ 백의 인원: 노란색 글씨 (배경 박스 생성됨)
-                # 한 줄로 표현하기 위해 value에 박스를 몰아넣음
-                field_name = "\u200b" 
-                field_value = f"```fix\n⭐ {rank_val}  {player_name} ({trophy_val})\n```"
+                # ⭐ 백의 인원: 별 이모지와 굵은 글씨로 강조
+                line = f"⭐ **{rank_val}  {player_name} ({trophy_val})**"
             else:
-                # 🔹 일반 인원: 박스 없는 기본 텍스트
-                field_name = f"🔹 {rank_val}  {player_name} ({trophy_val})"
-                field_value = "\u200b"
+                # 🔹 일반 인원: 파란 다이아몬드와 기본 글씨
+                line = f"🔹 {rank_val}  {player_name} ({trophy_val})"
+            
+            ranking_lines.append(line)
 
-            # inline=False를 써야 한 줄씩 차지함
-            embed.add_field(name=field_name, value=field_value, inline=False)
+        # join(\n)을 사용해서 모든 줄을 빈틈없이 합쳐버림
+        embed = discord.Embed(
+            title=f"🏆 {title}",
+            description="\n".join(ranking_lines), # 여기서 줄 간격이 최소화돼!
+            color=0x1ABC9C,
+            timestamp=datetime.now()
+        )
 
         await channel.send(embed=embed)
-        await asyncio.sleep(0.8) # 속도 제한 방지
+        await asyncio.sleep(0.8) # 디스코드 속도 제한 방지
 
 async def daily_task(channel_a, channel_b):
     KST = timezone(timedelta(hours=9))
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=23, minute=48, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=23, minute=57, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
