@@ -82,19 +82,19 @@ async def send_ranking_in_chunks(channel, players, title):
         )
 
         for p in chunk:
-            clan_name = p.get("clan", {}).get("name", "N/A")
             player_name = p['name']
-            rank_str = f"{p['rank']:03d}"
-            trophy_str = f"{p['trophies']}"
+            rank_val = p['rank']  # 1, 2, 3...
+            trophy_val = p['trophies']
+            clan_name = p.get("clan", {}).get("name", "")
             
             if "백의" in clan_name:
-                # 노란색 형광펜 스타일 (fix 문법)
-                # 이름은 위에 굵게 표시하고, 아래 정보를 노란색 박스에 넣음
-                field_name = f"⭐ **{player_name}**"
-                field_value = f"```fix\n{rank_str}   {trophy_str}\n```" # [clan_name] 삭제
+                # ⭐ 백의 클랜원: 한 줄 박스 (노란색 글씨)
+                # field_name은 비우고 value에 몰아넣어서 박스 높이를 최소화함
+                field_name = "\u200b" 
+                field_value = f"```fix\n⭐ {rank_val}  {player_name}  ({trophy_val})\n```"
             else:
-                # 일반 스타일
-                field_name = f"🔹 `{rank_str}` `{trophy_str}` {player_name}"
+                # 🔹 일반 스타일: 박스 없는 한 줄
+                field_name = f"🔹 {rank_val}  {player_name}  ({trophy_val})"
                 field_value = "\u200b"
 
             embed.add_field(name=field_name, value=field_value, inline=False)
@@ -108,7 +108,7 @@ async def daily_task(channel_a, channel_b):
     KST = timezone(timedelta(hours=9))
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=23, minute=1, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=23, minute=37, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
