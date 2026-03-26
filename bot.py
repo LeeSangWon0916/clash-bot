@@ -47,7 +47,7 @@ async def send_ranking_in_chunks(channel, players, title):
         return
 
     # 한 카드(Embed)당 10명씩 담는 것이 가장 깔끔함
-    chunk_size = 50 
+    chunk_size = 20 
     for i in range(0, len(players), chunk_size):
         chunk = players[i : i + chunk_size]
         
