@@ -62,27 +62,51 @@ def get_top_players():
 
 
 @client.event
-async def on_ready():
-    print(f"Logged in as {client.user}")
-    channel = await client.fetch_channel(CHANNEL_ID)
-
-    # 한국 시간대 정의 (UTC+9)
+async def daily_task(channel):
+    """매일 13시 58분에 실행되는 작업"""
     KST = timezone(timedelta(hours=9))
-
     while True:
-        # 현재 한국 시간 가져오기
         now_kst = datetime.now(KST)
-        
-        # 오늘 오후 1시 58분(KST) 설정
-        target_time = now_kst.replace(hour=12, minute=0, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=12, minute=5, second=0, microsecond=0)
 
-        # 이미 지났으면 내일로 설정
         if now_kst >= target_time:
             target_time += timedelta(days=1)
 
         wait_seconds = (target_time - now_kst).total_seconds()
-        print(f"다음 출력까지 {int(wait_seconds)}초 대기 (목표: {target_time.strftime('%Y-%m-%d %H:%M:%S')} KST)")
-
+        print(f"[예약] 다음 13:58 출력까지 {int(wait_seconds)}초 대기")
+        
         await asyncio.sleep(wait_seconds)
+        
+        try:
+            msg = get_top_players()
+            await channel.send(f"🔔 **정기 랭킹 알림 (13:58)**\n{msg}")
+            print("13:58 정기 전송 완료")
+        except Exception as e:
+            print(f"정기 전송 오류: {e}")
+        
+        await asyncio.sleep(60) # 중복 실행 방지
+
+async def minute_task(channel):
+    """1분마다 실행되는 체크용 작업"""
+    while True:
+        try:
+            msg = get_top_players()
+            now_str = datetime.now().strftime('%H:%M:%S')
+            await channel.send(f"⏱️ **1분 단위 체크 ({now_str})**\n{msg}")
+            print(f"{now_str} 1분 체크 전송 완료")
+        except Exception as e:
+            print(f"1분 체크 오류: {e}")
+            
+        await asyncio.sleep(60)
+
+@client.event
+async def on_ready():
+    print(f"Logged in as {client.user}")
+    channel = await client.fetch_channel(CHANNEL_ID)
+
+    # 두 개의 작업을 동시에 시작
+    asyncio.create_task(daily_task(channel))
+    asyncio.create_task(minute_task(channel))
+    print("모든 자동화 작업이 시작되었습니다.")
 
 client.run(TOKEN)
