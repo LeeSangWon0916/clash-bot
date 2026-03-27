@@ -93,21 +93,22 @@ async def send_ranking_in_chunks(channel, players, title, is_clan_channel=False)
             trophy_val = p['trophies']
             clan_name = p.get("clan", {}).get("name", "")
             
+            # 기본 데이터 형식
+            display_text = f"{rank_val}. {player_name} ({trophy_val})"
+            
             if "백의" in clan_name:
-                # ✅ 백의 인원: 맨 앞에 +를 붙여서 초록색으로 만듦
-                line = f"+ {rank_val}. {player_name} ({trophy_val})"
+                # 🔵 백의 인원: 줄 전체를 하이퍼링크로 감싸서 파란색으로 만듦
+                # 클릭 시 이동할 링크는 아무 의미 없는 주소나 coc 공식 사이트 등으로 설정
+                line = f"[**{display_text} (백의)**](https://clashofclans.com)"
             else:
-                # ⚪ 일반 인원: 맨 앞에 공백(또는 아무 기호 없음)
-                line = f"  {rank_val}. {player_name} ({trophy_val})"
+                # ⚪ 일반 인원: 배경 없는 깔끔한 흰색 글씨
+                line = f"{rank_val}. {player_name} ({trophy_val})"
             
             ranking_lines.append(line)
 
-        # 전체 내용을 ```diff 로 감싸야 색상이 적용돼!
-        full_content = "```diff\n" + "\n".join(ranking_lines) + "\n```"
-
         embed = discord.Embed(
             title=f"🏆 {title}",
-            description=full_content,
+            description="\n".join(ranking_lines),
             color=0x1ABC9C,
             timestamp=datetime.now()
         )
