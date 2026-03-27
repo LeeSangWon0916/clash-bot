@@ -93,15 +93,15 @@ async def send_ranking_in_chunks(channel, players, title, is_clan_channel=False)
             trophy_val = p['trophies']
             clan_name = p.get("clan", {}).get("name", "")
             
-            display_text = f"{rank_val}.  ` {trophy_val} `  {player_name}"
+            display_text = f"{rank_val}. {player_name} ({trophy_val})"
             
             if "백의" in clan_name:
-                # 🔵 핵심 트릭: 링크 주소 자리에 [ :숫자: ] 형식을 넣음
-                # 이렇게 하면 마우스를 올려도 밑줄이 안 생기고 팝업만 떠
-                line = f"[**{rank_val}. {trophy_val}  {player_name} (백의)**](<{rank_val}>)"
+                # 🔵 백의 인원: 줄 전체를 하이퍼링크로 감싸서 파란색으로 만듦
+                # 클릭 시 이동할 링크는 아무 의미 없는 주소나 coc 공식 사이트 등으로 설정
+                line = f"[**{display_text} (백의)**](https://clashofclans.com)"
             else:
-                # 일반 인원: 트로피에만 강조를 위해 백틱 사용 가능
-                line = f"{rank_val}.  ` {trophy_val} `  {player_name}"
+                # ⚪ 일반 인원: 배경 없는 깔끔한 흰색 글씨
+                line = f"{rank_val}. {player_name} ({trophy_val})"
             
             ranking_lines.append(line)
 
