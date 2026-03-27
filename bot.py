@@ -94,16 +94,16 @@ async def send_ranking_in_chunks(channel, players, title, is_clan_channel=False)
             clan_name = p.get("clan", {}).get("name", "")
             
             display_text = f"{rank_val}. {player_name} ({trophy_val})"
-            
-            if "백의" in clan_name:
-                # 🔵 백의 인원: 줄 전체를 하이퍼링크로 감싸서 파란색으로 만듦
-                # 클릭 시 이동할 링크는 아무 의미 없는 주소나 coc 공식 사이트 등으로 설정
-                line = f"[**{display_text} (백의)**](https://clashofclans.com)"
-            else:
-                # ⚪ 일반 인원: 배경 없는 깔끔한 흰색 글씨
-                line = f"{rank_val}. {player_name} ({trophy_val})"
-            
-            ranking_lines.append(line)
+        
+        if "백의" in clan_name:
+            # 🔵 핵심: 링크 주소 양옆을 < > 로 감싸고, 주소 자리에 숫자를 넣음
+            # 이렇게 하면 디스코드가 "외부 링크"가 아니라고 판단해서 밑줄을 긋지 않아.
+            line = f"[**{display_text} (백의)**](<{rank_val}>)"
+        else:
+            # ⚪ 일반 인원
+            line = f"{rank_val}. {player_name} ({trophy_val})"
+        
+        ranking_lines.append(line)
 
         embed = discord.Embed(
             title=f"🏆 {title}",
