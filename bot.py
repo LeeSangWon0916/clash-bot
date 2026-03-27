@@ -38,14 +38,26 @@ client = discord.Client(intents=intents)
 def get_top_players():
     url = "https://api.clashofclans.com/v1/locations/32000216/rankings/players"
     headers = {"Authorization": f"Bearer {API_KEY}"}
+
+    # Koyeb 환경 변수에 넣은 프록시 주소 가져오기
+    proxy_url = os.environ.get("PROXY_URL")
+    proxies = {
+        "http": proxy_url,
+        "https": proxy_url,
+    }
+
     try:
-        res = requests.get(url, headers=headers)
+        # 프록시를 통해 요청 (timeout은 넉넉히 15초)
+        res = requests.get(url, headers=headers, proxies=proxies, timeout=15)
         print(f"[API 호출 상태 코드] {res.status_code}")
+        
         if res.status_code == 200:
             return res.json().get("items", [])
-        return []
+        else:
+            print(f"[API 오류] {res.text}")
+            return []
     except Exception as e:
-        print(f"API 오류: {e}")
+        print(f"프록시 연결 실패: {e}")
         return []
     
 def get_clan_members(clan_tag):
