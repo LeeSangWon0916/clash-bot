@@ -69,44 +69,44 @@ async def send_ranking_in_chunks(channel, players, title, is_clan_channel=False)
     if not players:
         return
 
-    # 한 번에 보낼 인원 수 (25명 정도가 임베드 크기에 적당해)
     chunk_size = 25
     for i in range(0, len(players), chunk_size):
         chunk = players[i : i + chunk_size]
         
-        # 모든 인원을 하나의 리스트에 담아서 줄바꿈으로 합칠 거야
+        # 모든 인원을 하나의 문자열로 합쳐서 줄 간격을 없애버림
         ranking_lines = []
         for p in chunk:
             player_name = p['name']
-            rank_val = p['rank']
+            rank_val = p['rank'] # 001 대신 숫자 그대로 1, 2, 3...
             trophy_val = p['trophies']
             clan_name = p.get("clan", {}).get("name", "")
             
             if "백의" in clan_name:
-                # ⭐ 백의 인원: 별 이모지와 굵은 글씨로 강조
-                line = f"⭐ **{rank_val}  {player_name} ({trophy_val})**"
+                # ⭐ 백의 인원: 이미지처럼 민트색(청록색) 느낌을 주는 코드 조합
+                # 굵게(**)와 간단한 코드 블록(` `)을 사용하여 글자색을 다르게 함
+                line = f"{rank_val}. ` {trophy_val} ` **{player_name} (백의)**"
             else:
-                # 🔹 일반 인원: 파란 다이아몬드와 기본 글씨
-                line = f"🔹 {rank_val}  {player_name} ({trophy_val})"
+                # 🔹 일반 인원: 배경 없는 깔끔한 한 줄
+                line = f"{rank_val}. ` {trophy_val} ` {player_name}"
             
             ranking_lines.append(line)
 
-        # join(\n)을 사용해서 모든 줄을 빈틈없이 합쳐버림
+        # 모든 줄을 줄바꿈(\n)으로 합쳐서 하나의 description에 넣음
         embed = discord.Embed(
             title=f"🏆 {title}",
-            description="\n".join(ranking_lines), # 여기서 줄 간격이 최소화돼!
-            color=0x1ABC9C,
+            description="\n".join(ranking_lines), # 여기서 줄 간격이 결정됨
+            color=0x1ABC9C, # 청록색 테두리
             timestamp=datetime.now()
         )
 
         await channel.send(embed=embed)
-        await asyncio.sleep(0.8) # 디스코드 속도 제한 방지
+        await asyncio.sleep(0.8) # 속도 제한 방지
 
 async def daily_task(channel_a, channel_b):
     KST = timezone(timedelta(hours=9))
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=8, minute=57, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=9, minute=18, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
