@@ -103,7 +103,7 @@ async def send_ranking_in_chunks(channel, players, title, is_clan_channel=False)
             # ⚪ 일반 인원
             line = f"{rank_val}. {player_name} ({trophy_val})"
         
-        ranking_lines.append(line)
+            ranking_lines.append(line)
 
         embed = discord.Embed(
             title=f"🏆 {title}",
