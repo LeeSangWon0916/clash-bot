@@ -40,6 +40,7 @@ def get_top_players():
     headers = {"Authorization": f"Bearer {API_KEY}"}
     try:
         res = requests.get(url, headers=headers)
+        print(f"[API 호출 상태 코드] {res.status_code}")
         if res.status_code == 200:
             return res.json().get("items", [])
         return []
@@ -106,7 +107,7 @@ async def daily_task(channel_a, channel_b):
     KST = timezone(timedelta(hours=9))
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=13, minute=58, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=10, minute=55, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
@@ -166,8 +167,9 @@ async def on_message(message):
         # 전체 로컬 랭킹 상위 10명만 테스트로 출력해보기
         players = get_top_players()
         if players:
+            print("조건문 안에 들어옴.")
             # message.channel은 명령어를 친 바로 그 채널을 의미해
-            await send_ranking_in_chunks(message.channel, players[:10], "랭킹 디자인 테스트")
+            await send_ranking_in_chunks(message.channel, players[:], "랭킹 디자인 테스트")
         
         await message.channel.send("✅ 테스트 출력이 완료되었습니다!")
 
