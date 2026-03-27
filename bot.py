@@ -84,7 +84,7 @@ async def send_ranking_in_chunks(channel, players, title, is_clan_channel=False)
             if "백의" in clan_name:
                 # ⭐ 백의 인원: 이미지처럼 민트색(청록색) 느낌을 주는 코드 조합
                 # 굵게(**)와 간단한 코드 블록(` `)을 사용하여 글자색을 다르게 함
-                line = f"{rank_val}. ` {trophy_val} ` **{player_name} (백의)**"
+                line = f"⭐{rank_val}. ` {trophy_val} ` **{player_name} (백의)**"
             else:
                 # 🔹 일반 인원: 배경 없는 깔끔한 한 줄
                 line = f"{rank_val}. ` {trophy_val} ` {player_name}"
@@ -106,7 +106,7 @@ async def daily_task(channel_a, channel_b):
     KST = timezone(timedelta(hours=9))
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=9, minute=50, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=13, minute=58, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
@@ -152,5 +152,23 @@ async def on_ready():
         print("❌ 권한 오류: 봇이 채널 중 하나에 접근할 권한이 없습니다.")
     except Exception as e:
         print(f"❌ 오류 발생: {e}")
+
+@client.event
+async def on_message(message):
+    # 봇 자신이 쓴 메시지에는 반응하지 않게 방어
+    if message.author == client.user:
+        return
+
+    # 채팅창에 !test 라고 치면 실행
+    if message.content == "!test":
+        print(f"[{message.author}]님이 테스트 명령어를 사용함")
+        
+        # 전체 로컬 랭킹 상위 10명만 테스트로 출력해보기
+        players = get_top_players()
+        if players:
+            # message.channel은 명령어를 친 바로 그 채널을 의미해
+            await send_ranking_in_chunks(message.channel, players[:10], "랭킹 디자인 테스트")
+        
+        await message.channel.send("✅ 테스트 출력이 완료되었습니다!")
 
 client.run(TOKEN)
