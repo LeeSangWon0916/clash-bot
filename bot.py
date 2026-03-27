@@ -95,13 +95,13 @@ async def send_ranking_in_chunks(channel, players, title, is_clan_channel=False)
             
             display_text = f"{rank_val}. {player_name} ({trophy_val})"
         
-        if "백의" in clan_name:
-            # 🔵 핵심: 링크 주소 양옆을 < > 로 감싸고, 주소 자리에 숫자를 넣음
-            # 이렇게 하면 디스코드가 "외부 링크"가 아니라고 판단해서 밑줄을 긋지 않아.
-            line = f"[**{display_text} (백의)**](<{rank_val}>)"
-        else:
-            # ⚪ 일반 인원
-            line = f"{rank_val}. {player_name} ({trophy_val})"
+            if "백의" in clan_name:
+                # 🔵 핵심: 링크 주소 양옆을 < > 로 감싸고, 주소 자리에 숫자를 넣음
+                # 이렇게 하면 디스코드가 "외부 링크"가 아니라고 판단해서 밑줄을 긋지 않아.
+                line = f"[**{display_text} (백의)**](<{rank_val}>)"
+            else:
+                # ⚪ 일반 인원
+                line = f"{rank_val}. {player_name} ({trophy_val})"
         
             ranking_lines.append(line)
 
