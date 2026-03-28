@@ -93,21 +93,26 @@ async def send_ranking_in_chunks(channel, players, title, is_clan_channel=False)
             trophy_val = p['trophies']
             clan_name = p.get("clan", {}).get("name", "")
             
-            display_text = f"{rank_val}. {player_name} ({trophy_val})"
-        
-            if "백의" in clan_name:
-                # 🔵 핵심: 링크 주소 양옆을 < > 로 감싸고, 주소 자리에 숫자를 넣음
-                # 이렇게 하면 디스코드가 "외부 링크"가 아니라고 판단해서 밑줄을 긋지 않아.
-                line = f"[**{display_text} (백의)**](<{rank_val}>)"
+            display_text = f"{player_name} ({trophy_val})"
+            
+            if ("백의" in clan_name):
+                line = f"{rank_val}. [**{display_text} (백의)**](https://clashofclans.com)"
+            elif ("적의" in clan_name):
+                # 적의도 rank_val을 넣어주는 게 줄 맞춤에 좋을 거야!
+                line = f"{rank_val}. [**{display_text} (적의)**](https://clashofclans.com)"
             else:
-            # 일반 인원: 일반 텍스트
                 line = f"{rank_val}. {player_name} ({trophy_val})"
-        
+            
             ranking_lines.append(line)
+
+        # ⭐ 핵심: 박스 너비를 강제로 고정하기 위한 투명 가이드라인
+        # 일반 공백(' ')은 디스코드가 무시하므로, 특수 공백 문자를 사용해
+        width_guide = "_" * 45 # 또는 특수공백 60개
+        full_description = "\n".join(ranking_lines) + f"\n{width_guide}"
 
         embed = discord.Embed(
             title=f"🏆 {title}",
-            description="\n".join(ranking_lines),
+            description=full_description,
             color=0x1ABC9C,
             timestamp=datetime.now()
         )
