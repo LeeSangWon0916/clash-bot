@@ -198,7 +198,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=22, minute=50, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=13, minute=59, second=0, microsecond=0)
         await channel_a.send("✅ 채널 A 연결 테스트")
 
         if now_kst >= target_time:
