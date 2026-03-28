@@ -1,6 +1,7 @@
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import discord
+from discord.ui import Button, View
 import requests
 import asyncio
 import os
@@ -17,6 +18,40 @@ class Handler(BaseHTTPRequestHandler):
     def do_HEAD(self):
         self.send_response(200)
         self.end_headers()
+
+class RankingView(View):
+    def __init__(self, chunks, title):
+        super().__init__(timeout=60) # 60초 후 버튼 비활성화
+        self.chunks = chunks
+        self.title = title
+        self.current_page = 0
+
+    def create_embed(self):
+        chunk = self.chunks[self.current_page]
+        embed = discord.Embed(
+            title=f"🏆 {self.title}",
+            description="\n".join(chunk),
+            color=0x1ABC9C
+        )
+        # 하단에 "1/2" 같은 페이지 표시 추가
+        embed.set_footer(text=f"Page {self.current_page + 1}/{len(self.chunks)}")
+        return embed
+
+    @discord.ui.button(label="◀", style=discord.ButtonStyle.gray)
+    async def prev_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.current_page > 0:
+            self.current_page -= 1
+            await interaction.response.edit_message(embed=self.create_embed(), view=self)
+        else:
+            await interaction.response.send_message("첫 페이지입니다.", ephemeral=True)
+
+    @discord.ui.button(label="▶", style=discord.ButtonStyle.gray)
+    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.current_page < len(self.chunks) - 1:
+            self.current_page += 1
+            await interaction.response.edit_message(embed=self.create_embed(), view=self)
+        else:
+            await interaction.response.send_message("마지막 페이지입니다.", ephemeral=True)
 
 def run_server():
     server = HTTPServer(('0.0.0.0', 8000), Handler)
@@ -78,7 +113,7 @@ def get_clan_members(clan_tag):
         return []
 
 # --- 임베드 및 하이라이트 적용 함수 ---
-async def send_ranking_in_chunks(channel, players, title, is_clan_channel=False):
+'''async def send_ranking_in_chunks(channel, players, title, is_clan_channel=False):
     if not players:
         return
 
@@ -118,7 +153,38 @@ async def send_ranking_in_chunks(channel, players, title, is_clan_channel=False)
         )
 
         await channel.send(embed=embed)
-        await asyncio.sleep(0.8)
+        await asyncio.sleep(0.8)'''
+
+# 랭킹 명령어를 처리하는 함수 수정
+async def send_ranking_with_buttons(channel, players, title):
+    chunk_size = 25
+    all_lines = []
+    
+    # 1. 일단 모든 플레이어 줄을 생성
+    for p in players:
+        player_name = p['name']
+        rank_val = p['rank']
+        trophy_val = p['trophies']
+        clan_name = p.get("clan", {}).get("name", "")
+        
+        display_text = f"{player_name} ({trophy_val})"
+            
+        if ("백의" in clan_name):
+            line = f"{rank_val}. [**{display_text} (백의)**](https://clashofclans.com)"
+        elif ("적의" in clan_name):
+                # 적의도 rank_val을 넣어주는 게 줄 맞춤에 좋을 거야!
+            line = f"{rank_val}. [**{display_text} (적의)**](https://clashofclans.com)"
+        else:
+            line = f"{rank_val}. {player_name} ({trophy_val})"
+            
+        all_lines.append(line)
+
+    # 2. 25명씩 묶음(Chunk) 생성
+    chunks = [all_lines[i : i + chunk_size] for i in range(0, len(all_lines), chunk_size)]
+    
+    # 3. 버튼 뷰 생성 및 전송
+    view = RankingView(chunks, title)
+    await channel.send(embed=view.create_embed(), view=view)
 
 async def daily_task(channel_a, channel_b):
     KST = timezone(timedelta(hours=9))
@@ -135,9 +201,9 @@ async def daily_task(channel_a, channel_b):
         
         players = get_top_players()
         if players:
-            await send_ranking_in_chunks(channel_a, players, "Local Ranking 🇰🇷")
+            await send_ranking_with_buttons(channel_a, players, "Local Ranking 🇰🇷")
 
-        clan_members = get_clan_members(CLAN_TAG)
+        '''clan_members = get_clan_members(CLAN_TAG)
         if clan_members:
             # 클랜원 랭킹은 순위를 1부터 다시 매겨서 전송
             for idx, m in enumerate(clan_members, 1):
@@ -145,7 +211,7 @@ async def daily_task(channel_a, channel_b):
                 # 클랜원 랭킹이니까 clan_name은 우리 클랜으로 고정
                 m['clan'] = {'name': '백의'} 
                 
-            await send_ranking_in_chunks(channel_b, clan_members, "백의 클랜원 트로피 순위 ⭐")
+            await send_ranking_in_chunks(channel_b, clan_members, "백의 클랜원 트로피 순위 ⭐")'''
 
         print(f"[{datetime.now(KST).strftime('%Y-%m-%d %H:%M:%S')}] 모든 랭킹 전송 완료!")
         await asyncio.sleep(60)
@@ -186,7 +252,7 @@ async def on_message(message):
         if players:
             print("조건문 안에 들어옴.")
             # message.channel은 명령어를 친 바로 그 채널을 의미해
-            await send_ranking_in_chunks(message.channel, players[:], "랭킹 디자인 테스트")
+            await send_ranking_with_buttons(message.channel, players[:], "랭킹 디자인 테스트")
         
         await message.channel.send("✅ 테스트 출력이 완료되었습니다!")
 
