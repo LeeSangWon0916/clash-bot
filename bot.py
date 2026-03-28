@@ -185,9 +185,6 @@ async def send_ranking_with_buttons(channel, players, title):
             line = f"{rank_val}. {player_name} ({trophy_val})"
             
         all_lines.append(line)
-
-    # 2. 25명씩 묶음(Chunk) 생성
-    chunks = [all_lines[i : i + chunk_size] for i in range(0, len(all_lines), chunk_size)]
     
     # 3. 버튼 뷰 생성 및 전송
     view = RankingView(players, title, get_top_players)
@@ -206,10 +203,13 @@ async def daily_task(channel_a, channel_b):
         wait_seconds = (target_time - now_kst).total_seconds()
         print(f"[예약] 다음 정기 출력까지 {int(wait_seconds)}초 대기")
         await asyncio.sleep(wait_seconds)
+
+        now_kst = datetime.now(KST)
+        date_str = now_kst.strftime("%Y.%m.%d")
         
         players = get_top_players()
         if players:
-            await send_ranking_with_buttons(channel_a, players, "Local Ranking 🇰🇷")
+            await send_ranking_with_buttons(channel_a, players, f"Local Ranking 🇰🇷 ({date_str})")
 
         '''clan_members = get_clan_members(CLAN_TAG)
         if clan_members:
