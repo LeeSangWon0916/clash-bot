@@ -222,7 +222,7 @@ async def send_ranking_with_buttons(channel, players, title):
     chunks = [all_lines[i : i + chunk_size] for i in range(0, len(all_lines), chunk_size)]
     
     # 3. 버튼 뷰 생성 및 전송
-    view = RankingView(chunks, title)
+    view = RankingView(chunks, title, get_top_players)
     await channel.send(embed=view.create_embed(), view=view)
 
 async def daily_task(channel_a, channel_b):
@@ -294,8 +294,7 @@ async def on_message(message):
             await send_ranking_with_buttons(
                 message.channel, 
                 players[:], 
-                f"랭킹 디자인 테스트 ({now_str})",
-                fetch_func=get_top_players
+                f"랭킹 디자인 테스트 ({now_str})"
             )
         
         await message.channel.send("✅ 테스트 출력이 완료되었습니다!")
