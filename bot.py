@@ -21,50 +21,75 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
 class RankingView(View):
-    def __init__(self, chunks, title):
-        super().__init__(timeout=60) # 60초 후 버튼 비활성화
-        self.chunks = chunks
+    def __init__(self, players_data, title, fetch_func):
+        super().__init__(timeout=60)
+        self.players_data = players_data # 현재 데이터
         self.title = title
+        self.fetch_func = fetch_func     # 데이터를 새로 가져올 함수
         self.current_page = 0
+        self.chunk_size = 100
+        self.update_chunks()
+
+    def update_chunks(self):
+        # 플레이어 데이터를 100명씩 나누는 작업
+        all_lines = []
+        for p in self.players_data:
+            player_name = p['name']
+            rank_val = p['rank']
+            trophy_val = p['trophies']
+            clan_name = p.get("clan", {}).get("name", "")
+            
+            display_text = f"{player_name} ({trophy_val})"
+            
+            if "백의" in clan_name:
+                line = f"{rank_val}. [**{display_text} (백의)**](https://clashofclans.com)"
+            elif "적의" in clan_name:
+                line = f"{rank_val}. [**{display_text} (적의)**](https://clashofclans.com)"
+            else:
+                line = f"{rank_val}. {player_name} ({trophy_val})"
+            all_lines.append(line)
+        
+        self.chunks = [all_lines[i : i + self.chunk_size] for i in range(0, len(all_lines), self.chunk_size)]
 
     def create_embed(self):
         chunk = self.chunks[self.current_page]
 
-        # 1. 박스 너비를 강제로 고정하기 위한 특수 공백 가이드라인
-        # 일반 스페이스가 아니라 'ㄱ+한자+1' 공백이야.
-        invisible_filler = "ㅤ" * 30
-        
-        # 2. 랭킹 줄들과 가이드라인을 합침
-        full_description = "\n".join(chunk) + f"\n{invisible_filler}"
-
         embed = discord.Embed(
             title=f"🏆 {self.title}",
-            description= "\n".join(chunk),#full_description,"\n".join(chunk),
+            description="\n".join(chunk),
             color=0x1ABC9C,
             timestamp=datetime.now()
         )
-        # 하단에 "1/2" 같은 페이지 표시 추가
-        embed.set_footer(text=f"Page {self.current_page + 1}/{len(self.chunks)}")
+        embed.set_footer(text=f"Page {self.current_page + 1}/{len(self.chunks)} | 마지막 갱신")
         return embed
 
     @discord.ui.button(label="◀", style=discord.ButtonStyle.primary)
     async def prev_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # 🔄 첫 페이지에서 누르면 마지막 페이지로 이동
-        if self.current_page == 0:
-            self.current_page = len(self.chunks) - 1
-        else:
-            self.current_page -= 1
-        
+        self.current_page = (self.current_page - 1) % len(self.chunks)
         await interaction.response.edit_message(embed=self.create_embed(), view=self)
+
+    # 🔄 새로고침 버튼 추가 (초록색)
+    @discord.ui.button(label="🔄", style=discord.ButtonStyle.success)
+    async def refresh_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # 1. "생각 중..." 상태 표시 (데이터 로딩 시간이 걸릴 수 있으므로)
+        await interaction.response.defer_update()
+        
+        # 2. 데이터 새로 가져오기 (이 함수는 비동기 함수여야 함)
+        loop = asyncio.get_event_loop()
+        new_players = await self.fetch_func() 
+        
+        if new_players:
+            self.players_data = new_players
+            self.update_chunks() # 데이터 묶음 다시 계산
+            # 3. 메시지 업데이트
+            await interaction.edit_original_response(embed=self.create_embed(), view=self)
+        else:
+            # 실패했을 때 사용자에게 살짝 알림 (본인만 보임)
+            await interaction.followup.send("데이터를 갱신하지 못했습니다.", ephemeral=True)
 
     @discord.ui.button(label="▶", style=discord.ButtonStyle.primary)
     async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # 🔄 마지막 페이지에서 누르면 첫 페이지로 이동
-        if self.current_page == len(self.chunks) - 1:
-            self.current_page = 0
-        else:
-            self.current_page += 1
-            
+        self.current_page = (self.current_page + 1) % len(self.chunks)
         await interaction.response.edit_message(embed=self.create_embed(), view=self)
 
 def run_server():
@@ -269,7 +294,8 @@ async def on_message(message):
             await send_ranking_with_buttons(
                 message.channel, 
                 players[:], 
-                f"랭킹 디자인 테스트 ({now_str})"
+                f"랭킹 디자인 테스트 ({now_str})",
+                fetch_func=get_top_players
             )
         
         await message.channel.send("✅ 테스트 출력이 완료되었습니다!")
