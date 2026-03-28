@@ -48,19 +48,23 @@ class RankingView(View):
 
     @discord.ui.button(label="◀", style=discord.ButtonStyle.primary)
     async def prev_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if self.current_page > 0:
-            self.current_page -= 1
-            await interaction.response.edit_message(embed=self.create_embed(), view=self)
+        # 🔄 첫 페이지에서 누르면 마지막 페이지로 이동
+        if self.current_page == 0:
+            self.current_page = len(self.chunks) - 1
         else:
-            await interaction.response.send_message("첫 페이지입니다.", ephemeral=True)
+            self.current_page -= 1
+        
+        await interaction.response.edit_message(embed=self.create_embed(), view=self)
 
     @discord.ui.button(label="▶", style=discord.ButtonStyle.primary)
     async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if self.current_page < len(self.chunks) - 1:
-            self.current_page += 1
-            await interaction.response.edit_message(embed=self.create_embed(), view=self)
+        # 🔄 마지막 페이지에서 누르면 첫 페이지로 이동
+        if self.current_page == len(self.chunks) - 1:
+            self.current_page = 0
         else:
-            await interaction.response.send_message("마지막 페이지입니다.", ephemeral=True)
+            self.current_page += 1
+            
+        await interaction.response.edit_message(embed=self.create_embed(), view=self)
 
 def run_server():
     server = HTTPServer(('0.0.0.0', 8000), Handler)
