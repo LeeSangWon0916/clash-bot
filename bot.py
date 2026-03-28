@@ -31,7 +31,7 @@ class RankingView(View):
 
         # 1. 박스 너비를 강제로 고정하기 위한 특수 공백 가이드라인
         # 일반 스페이스가 아니라 'ㄱ+한자+1' 공백이야.
-        invisible_filler = "ㅤ" * 40 
+        invisible_filler = "ㅤ" * 30
         
         # 2. 랭킹 줄들과 가이드라인을 합침
         full_description = "\n".join(chunk) + f"\n{invisible_filler}"
@@ -166,7 +166,7 @@ def get_clan_members(clan_tag):
 
 # 랭킹 명령어를 처리하는 함수 수정
 async def send_ranking_with_buttons(channel, players, title):
-    chunk_size = 50
+    chunk_size = 25
     all_lines = []
     
     # 1. 일단 모든 플레이어 줄을 생성
