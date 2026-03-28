@@ -22,7 +22,7 @@ class Handler(BaseHTTPRequestHandler):
 
 class RankingView(View):
     def __init__(self, players_data, title, fetch_func):
-        super().__init__(timeout=60)
+        super().__init__(timeout=None)
         self.players_data = players_data # 현재 데이터
         self.title = title
         self.fetch_func = fetch_func     # 데이터를 새로 가져올 함수
@@ -74,7 +74,7 @@ class RankingView(View):
         await interaction.response.edit_message(embed=self.create_embed(), view=self)
 
     # 🔄 새로고침 버튼 추가 (초록색)
-    @discord.ui.button(label="🔄", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="🔄", style=discord.ButtonStyle.secondary)
     async def refresh_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         try:
             # 1. 상호작용 지연 처리 (3초 타임아웃 방지)
