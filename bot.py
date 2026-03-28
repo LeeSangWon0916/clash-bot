@@ -222,7 +222,7 @@ async def send_ranking_with_buttons(channel, players, title):
     chunks = [all_lines[i : i + chunk_size] for i in range(0, len(all_lines), chunk_size)]
     
     # 3. 버튼 뷰 생성 및 전송
-    view = RankingView(chunks, title, get_top_players)
+    view = RankingView(players, title, get_top_players)
     await channel.send(embed=view.create_embed(), view=view)
 
 async def daily_task(channel_a, channel_b):
