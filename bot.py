@@ -8,6 +8,7 @@ import os
 from dotenv import load_dotenv
 from datetime import datetime, timedelta, timezone
 
+
 # --- 서버 설정 (Koyeb 유지용) ---
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -38,7 +39,7 @@ class RankingView(View):
 
         embed = discord.Embed(
             title=f"🏆 {self.title}",
-            description=full_description,#"\n".join(chunk),
+            description= "\n".join(chunk),#full_description,"\n".join(chunk),
             color=0x1ABC9C,
             timestamp=datetime.now()
         )
@@ -261,11 +262,15 @@ async def on_message(message):
         print(f"[{message.author}]님이 테스트 명령어를 사용함")
         
         # 전체 로컬 랭킹 상위 10명만 테스트로 출력해보기
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
         players = get_top_players()
         if players:
-            print("조건문 안에 들어옴.")
             # message.channel은 명령어를 친 바로 그 채널을 의미해
-            await send_ranking_with_buttons(message.channel, players[:], "랭킹 디자인 테스트")
+            await send_ranking_with_buttons(
+                message.channel, 
+                players[:], 
+                f"랭킹 디자인 테스트 ({now_str})"
+            )
         
         await message.channel.send("✅ 테스트 출력이 완료되었습니다!")
 
