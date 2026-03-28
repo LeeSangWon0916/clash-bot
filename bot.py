@@ -68,29 +68,41 @@ class RankingView(View):
         self.current_page = (self.current_page - 1) % len(self.chunks)
         await interaction.response.edit_message(embed=self.create_embed(), view=self)
 
-    # 🔄 새로고침 버튼 추가 (초록색)
-    @discord.ui.button(label="🔄", style=discord.ButtonStyle.success)
-    async def refresh_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # 1. "생각 중..." 상태 표시 (데이터 로딩 시간이 걸릴 수 있으므로)
-        await interaction.response.defer_update()
-        
-        # 2. 데이터 새로 가져오기 (이 함수는 비동기 함수여야 함)
-        loop = asyncio.get_event_loop()
-        new_players = await self.fetch_func() 
-        
-        if new_players:
-            self.players_data = new_players
-            self.update_chunks() # 데이터 묶음 다시 계산
-            # 3. 메시지 업데이트
-            await interaction.edit_original_response(embed=self.create_embed(), view=self)
-        else:
-            # 실패했을 때 사용자에게 살짝 알림 (본인만 보임)
-            await interaction.followup.send("데이터를 갱신하지 못했습니다.", ephemeral=True)
-
     @discord.ui.button(label="▶", style=discord.ButtonStyle.primary)
     async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.current_page = (self.current_page + 1) % len(self.chunks)
         await interaction.response.edit_message(embed=self.create_embed(), view=self)
+
+    # 🔄 새로고침 버튼 추가 (초록색)
+    @discord.ui.button(label="🔄", style=discord.ButtonStyle.primary)
+    async def refresh_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        try:
+            # 1. 상호작용 지연 처리 (3초 타임아웃 방지)
+            # 'defer_update'가 아니라 'defer'야!
+            await interaction.response.defer()
+            
+            # 2. 데이터 새로 가져오기
+            # 만약 fetch_func가 일반 함수(def)라면 아래처럼 실행
+            # 만약 비동기 함수(async def)라면 그냥 await self.fetch_func()
+            if asyncio.iscoroutinefunction(self.fetch_func):
+                new_players = await self.fetch_func()
+            else:
+                loop = asyncio.get_event_loop()
+                new_players = await loop.run_in_executor(None, self.fetch_func)
+            
+            if new_players:
+                self.players_data = new_players
+                self.update_chunks() # 데이터 다시 쪼개기
+                
+                # 3. 메시지 업데이트
+                await interaction.edit_original_response(embed=self.create_embed(), view=self)
+            else:
+                await interaction.followup.send("데이터를 가져오는 데 실패했습니다.", ephemeral=True)
+                
+        except Exception as e:
+            print(f"새로고침 중 에러 발생: {e}")
+            # 에러 발생 시 사용자에게 알림
+            await interaction.followup.send("새로고침 중 문제가 발생했습니다.", ephemeral=True)
 
 def run_server():
     server = HTTPServer(('0.0.0.0', 8000), Handler)
