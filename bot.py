@@ -8,7 +8,6 @@ import os
 from dotenv import load_dotenv
 from datetime import datetime, timedelta, timezone
 
-
 # --- 서버 설정 (Koyeb 유지용) ---
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -163,50 +162,7 @@ def get_clan_members(clan_tag):
         print(f"클랜 API 오류: {e}")
         return []
 
-# --- 임베드 및 하이라이트 적용 함수 ---
-'''async def send_ranking_in_chunks(channel, players, title, is_clan_channel=False):
-    if not players:
-        return
-
-    chunk_size = 25
-    for i in range(0, len(players), chunk_size):
-        chunk = players[i : i + chunk_size]
-        
-        ranking_lines = []
-        for p in chunk:
-            player_name = p['name']
-            rank_val = p['rank']
-            trophy_val = p['trophies']
-            clan_name = p.get("clan", {}).get("name", "")
-            
-            display_text = f"{player_name} ({trophy_val})"
-            
-            if ("백의" in clan_name):
-                line = f"{rank_val}. [**{display_text} (백의)**](https://clashofclans.com)"
-            elif ("적의" in clan_name):
-                # 적의도 rank_val을 넣어주는 게 줄 맞춤에 좋을 거야!
-                line = f"{rank_val}. [**{display_text} (적의)**](https://clashofclans.com)"
-            else:
-                line = f"{rank_val}. {player_name} ({trophy_val})"
-            
-            ranking_lines.append(line)
-
-        # ⭐ 핵심: 박스 너비를 강제로 고정하기 위한 투명 가이드라인
-        # 일반 공백(' ')은 디스코드가 무시하므로, 특수 공백 문자를 사용해
-        width_guide = "_" * 45 # 또는 특수공백 60개
-        full_description = "\n".join(ranking_lines) + f"\n{width_guide}"
-
-        embed = discord.Embed(
-            title=f"🏆 {title}",
-            description=full_description,
-            color=0x1ABC9C,
-            timestamp=datetime.now()
-        )
-
-        await channel.send(embed=embed)
-        await asyncio.sleep(0.8)'''
-
-# 랭킹 명령어를 처리하는 함수 수정
+# 국내 랭킹 명령어를 처리하는 함수
 async def send_ranking_with_buttons(channel, players, title):
     chunk_size = 100
     all_lines = []
@@ -239,9 +195,11 @@ async def send_ranking_with_buttons(channel, players, title):
 
 async def daily_task(channel_a, channel_b):
     KST = timezone(timedelta(hours=9))
+
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=10, minute=55, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=22, minute=50, second=0, microsecond=0)
+        await channel_a.send("✅ 채널 A 연결 테스트")
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
