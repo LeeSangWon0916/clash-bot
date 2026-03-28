@@ -166,7 +166,7 @@ def get_clan_members(clan_tag):
 
 # 랭킹 명령어를 처리하는 함수 수정
 async def send_ranking_with_buttons(channel, players, title):
-    chunk_size = 25
+    chunk_size = 100
     all_lines = []
     
     # 1. 일단 모든 플레이어 줄을 생성
