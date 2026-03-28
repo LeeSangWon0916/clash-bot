@@ -28,16 +28,25 @@ class RankingView(View):
 
     def create_embed(self):
         chunk = self.chunks[self.current_page]
+
+        # 1. 박스 너비를 강제로 고정하기 위한 특수 공백 가이드라인
+        # 일반 스페이스가 아니라 'ㄱ+한자+1' 공백이야.
+        invisible_filler = "ㅤ" * 40 
+        
+        # 2. 랭킹 줄들과 가이드라인을 합침
+        full_description = "\n".join(chunk) + f"\n{invisible_filler}"
+
         embed = discord.Embed(
             title=f"🏆 {self.title}",
-            description="\n".join(chunk),
-            color=0x1ABC9C
+            description=full_description,#"\n".join(chunk),
+            color=0x1ABC9C,
+            timestamp=datetime.now()
         )
         # 하단에 "1/2" 같은 페이지 표시 추가
         embed.set_footer(text=f"Page {self.current_page + 1}/{len(self.chunks)}")
         return embed
 
-    @discord.ui.button(label="◀", style=discord.ButtonStyle.gray)
+    @discord.ui.button(label="◀", style=discord.ButtonStyle.primary)
     async def prev_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if self.current_page > 0:
             self.current_page -= 1
@@ -45,7 +54,7 @@ class RankingView(View):
         else:
             await interaction.response.send_message("첫 페이지입니다.", ephemeral=True)
 
-    @discord.ui.button(label="▶", style=discord.ButtonStyle.gray)
+    @discord.ui.button(label="▶", style=discord.ButtonStyle.primary)
     async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if self.current_page < len(self.chunks) - 1:
             self.current_page += 1
@@ -157,7 +166,7 @@ def get_clan_members(clan_tag):
 
 # 랭킹 명령어를 처리하는 함수 수정
 async def send_ranking_with_buttons(channel, players, title):
-    chunk_size = 25
+    chunk_size = 50
     all_lines = []
     
     # 1. 일단 모든 플레이어 줄을 생성
