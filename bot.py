@@ -56,7 +56,8 @@ class RankingView(View):
         embed = discord.Embed(
             title=f"🏆 {self.title}",
             description="\n".join(chunk),
-            color=0x1ABC9C
+            color=0x1ABC9C,
+            timestamp=datetime.now()
         )
         embed.set_footer(text=f"Page {self.current_page + 1}/{len(self.chunks)}")
         return embed
