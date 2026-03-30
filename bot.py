@@ -56,10 +56,9 @@ class RankingView(View):
         embed = discord.Embed(
             title=f"🏆 {self.title}",
             description="\n".join(chunk),
-            color=0x1ABC9C,
-            timestamp=datetime.now()
+            color=0x1ABC9C
         )
-        embed.set_footer(text=f"Page {self.current_page + 1}/{len(self.chunks)} | 마지막 갱신")
+        embed.set_footer(text=f"Page {self.current_page + 1}/{len(self.chunks)}")
         return embed
 
     @discord.ui.button(label="◀", style=discord.ButtonStyle.primary)
@@ -73,7 +72,7 @@ class RankingView(View):
         await interaction.response.edit_message(embed=self.create_embed(), view=self)
 
     # 🔄 새로고침 버튼 추가 (초록색)
-    @discord.ui.button(label="🔄", style=discord.ButtonStyle.secondary)
+    '''@discord.ui.button(label="🔄", style=discord.ButtonStyle.secondary)
     async def refresh_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         try:
             # 1. 상호작용 지연 처리 (3초 타임아웃 방지)
@@ -101,7 +100,7 @@ class RankingView(View):
         except Exception as e:
             print(f"새로고침 중 에러 발생: {e}")
             # 에러 발생 시 사용자에게 알림
-            await interaction.followup.send("새로고침 중 문제가 발생했습니다.", ephemeral=True)
+            await interaction.followup.send("새로고침 중 문제가 발생했습니다.", ephemeral=True)'''
 
 def run_server():
     server = HTTPServer(('0.0.0.0', 8000), Handler)
@@ -195,7 +194,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=13, minute=59, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=14, minute=0, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
