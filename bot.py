@@ -54,7 +54,7 @@ class RankingView(View):
         chunk = self.chunks[self.current_page]
 
         embed = discord.Embed(
-            title=None,#f"🏆 {self.title}",
+            title=self.title,
             description="\n".join(chunk),
             color=0x1ABC9C,
             timestamp=datetime.now()
@@ -205,11 +205,11 @@ async def daily_task(channel_a, channel_b):
         await asyncio.sleep(wait_seconds)
 
         now_kst = datetime.now(KST)
-        date_str = now_kst.strftime("%Y.%m.%d")
+        date_str = now_kst.strftime("%y.%m.%d")
         
         players = get_top_players()
         if players:
-            await send_ranking_with_buttons(channel_a, players, f"Local Ranking 🇰🇷 ({date_str})")
+            await send_ranking_with_buttons(channel_a, players, f"Korea Ranking ({date_str})")
 
         '''clan_members = get_clan_members(CLAN_TAG)
         if clan_members:
