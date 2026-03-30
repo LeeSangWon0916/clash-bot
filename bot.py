@@ -23,7 +23,7 @@ class RankingView(View):
     def __init__(self, players_data, title, fetch_func):
         super().__init__(timeout=None)
         self.players_data = players_data # 현재 데이터
-        self.title = title
+        #self.title = title
         self.fetch_func = fetch_func     # 데이터를 새로 가져올 함수
         self.current_page = 0
         self.chunk_size = 100
