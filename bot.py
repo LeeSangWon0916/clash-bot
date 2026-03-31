@@ -163,7 +163,7 @@ def get_clan_members(clan_tag):
         return []
 
 # 국내 랭킹 명령어를 처리하는 함수
-async def send_ranking_with_buttons(channel, players, title):
+async def send_ranking_with_buttons(channel, players, title, fetch_func):
     chunk_size = 100
     all_lines = []
     
@@ -187,7 +187,7 @@ async def send_ranking_with_buttons(channel, players, title):
         all_lines.append(line)
     
     # 3. 버튼 뷰 생성 및 전송
-    view = RankingView(players, title, get_top_players)
+    view = RankingView(players, title, fetch_func)
     await channel.send(embed=view.create_embed(), view=view)
 
 async def daily_task(channel_a, channel_b):
@@ -205,13 +205,13 @@ async def daily_task(channel_a, channel_b):
         await asyncio.sleep(wait_seconds)
 
         now_kst = datetime.now(KST)
-        date_str = now_kst.strftime("%m/%d-%I%p")
+        date_str = now_kst.strftime("%m/%d-%-I %p")
         
         players = get_top_players()
         if players:
-            await send_ranking_with_buttons(channel_a, players, f"Korea Ranking ({date_str})")
+            await send_ranking_with_buttons(channel_a, players, f"Korea Ranking ({date_str})", fetch_func=get_top_players)
 
-        '''clan_members = get_clan_members(CLAN_TAG)
+        clan_members = get_clan_members(CLAN_TAG)
         if clan_members:
             # 클랜원 랭킹은 순위를 1부터 다시 매겨서 전송
             for idx, m in enumerate(clan_members, 1):
@@ -219,7 +219,7 @@ async def daily_task(channel_a, channel_b):
                 # 클랜원 랭킹이니까 clan_name은 우리 클랜으로 고정
                 m['clan'] = {'name': '백의'} 
                 
-            await send_ranking_in_chunks(channel_b, clan_members, "백의 클랜원 트로피 순위 ⭐")'''
+            await send_ranking_with_buttons(channel_b, clan_members, f"백의 클랜원 랭킹 ({date_str})", fetch_func=lambda: get_clan_members(CLAN_TAG))
 
         print(f"[{datetime.now(KST).strftime('%Y-%m-%d %H:%M:%S')}] 모든 랭킹 전송 완료!")
         await asyncio.sleep(60)
@@ -263,7 +263,8 @@ async def on_message(message):
             await send_ranking_with_buttons(
                 message.channel, 
                 players[:], 
-                f"랭킹 디자인 테스트 ({now_str})"
+                f"클랜 랭킹 디자인 테스트 ({now_str})",
+                fetch_func=lambda: get_clan_members(CLAN_TAG)
             )
         
         await message.channel.send("✅ 테스트 출력이 완료되었습니다!")
