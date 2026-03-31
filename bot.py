@@ -57,9 +57,9 @@ class RankingView(View):
             title=self.title,
             description="\n".join(chunk),
             color=0x1ABC9C,
-            timestamp=datetime.now()
+            # timestamp=datetime.now()
         )
-        embed.set_footer(text=f"Page {self.current_page + 1}/{len(self.chunks)}")
+        embed.set_footer(text=f"Page {self.current_page + 1}/{len(self.chunks)} | 오늘 오후 14:00")
         return embed
 
     @discord.ui.button(label="◀", style=discord.ButtonStyle.primary)
@@ -195,7 +195,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=14, minute=7, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=14, minute=0, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
@@ -205,7 +205,7 @@ async def daily_task(channel_a, channel_b):
         await asyncio.sleep(wait_seconds)
 
         now_kst = datetime.now(KST)
-        date_str = now_kst.strftime("%y.%m.%d")
+        date_str = now_kst.strftime("%m/%d-%I%p")
         
         players = get_top_players()
         if players:
