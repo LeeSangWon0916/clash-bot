@@ -181,11 +181,15 @@ async def send_ranking_with_buttons(channel, players, title, fetch_func):
     all_lines = []
     
     # 1. 일단 모든 플레이어 줄을 생성
-    for p in players:
+    for idx, p in enumerate(players, 1):
         player_name = p['name']
-        rank_val = p['rank']
+        
+        # API에 rank가 있으면 쓰고, 없으면 idx(1, 2, 3...)를 사용해
+        rank_val = p.get('rank', idx) 
+        
         trophy_val = p['trophies']
-        clan_name = p.get("clan", {}).get("name", "")
+        clan_info = p.get("clan")
+        clan_name = clan_info.get("name", "") if clan_info else ""
         
         display_text = f"{player_name} ({trophy_val})"
             
