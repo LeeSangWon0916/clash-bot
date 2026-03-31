@@ -257,7 +257,7 @@ async def on_message(message):
         
         # 전체 로컬 랭킹 상위 10명만 테스트로 출력해보기
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
-        players = get_top_players()
+        players = get_clan_members
         if players:
             # message.channel은 명령어를 친 바로 그 채널을 의미해
             await send_ranking_with_buttons(
