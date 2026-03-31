@@ -27,7 +27,7 @@ class RankingView(View):
         self.fetch_func = fetch_func     # 데이터를 새로 가져올 함수
         self.current_page = 0
         self.chunk_size = 100
-        self.update_chunks()
+        #self.update_chunks()
 
     def update_chunks(self):
         # 플레이어 데이터를 100명씩 나누는 작업
