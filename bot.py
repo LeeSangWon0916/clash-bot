@@ -146,20 +146,33 @@ def get_top_players():
         return []
     
 def get_clan_members(clan_tag):
-    # 태그에 #이 있으면 URL 인코딩(%23)으로 바꿔줘야 해
-    safe_tag = clan_tag.replace("#", "%23")
-    url = f"https://api.clashofclans.com/v1/clans/{safe_tag}/members"
+    # 1. 태그 정규화 (# 제거 후 %23 부착)
+    clean_tag = clan_tag.strip().replace("#", "")
+    url = f"https://api.clashofclans.com/v1/clans/%23{clean_tag}/members"
     headers = {"Authorization": f"Bearer {API_KEY}"}
     
+    # 2. 프록시 설정 (Koyeb 환경 변수에서 가져오기)
+    proxy_url = os.environ.get("PROXY_URL")
+    proxies = {
+        "http": proxy_url,
+        "https": proxy_url,
+    }
+
     try:
-        res = requests.get(url, headers=headers)
+        # 3. 프록시와 타임아웃을 포함하여 요청
+        res = requests.get(url, headers=headers, proxies=proxies, timeout=15)
+        
         if res.status_code == 200:
+            data = res.json()
+            members = data.get("items", [])
             # 트로피 순으로 정렬해서 반환
-            members = res.json().get("items", [])
-            return sorted(members, key=lambda x: x['trophies'], reverse=True)
-        return []
+            return sorted(members, key=lambda x: int(x.get('trophies', 0)), reverse=True)
+        else:
+            print(f"[클랜 API 에러] 상태 코드: {res.status_code}")
+            return []
+            
     except Exception as e:
-        print(f"클랜 API 오류: {e}")
+        print(f"[클랜 API 예외 발생] {e}")
         return []
 
 # 국내 랭킹 명령어를 처리하는 함수
