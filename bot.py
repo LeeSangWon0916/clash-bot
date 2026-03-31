@@ -29,6 +29,10 @@ class RankingView(View):
         self.chunk_size = 100
         self.update_chunks()
 
+        # ⭐ 페이지가 1개 이하일 경우(클랜 랭킹 등) 버튼 제거
+        if len(self.chunks) <= 1:
+            self.clear_items() # 모든 버튼(◀, ▶ 등)을 뷰에서 삭제함
+
     def update_chunks(self):
         # 플레이어 데이터를 100명씩 나누는 작업
         all_lines = []
