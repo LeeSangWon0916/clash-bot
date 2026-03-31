@@ -27,16 +27,22 @@ class RankingView(View):
         self.fetch_func = fetch_func     # 데이터를 새로 가져올 함수
         self.current_page = 0
         self.chunk_size = 100
-        #self.update_chunks()
+        self.update_chunks()
 
     def update_chunks(self):
         # 플레이어 데이터를 100명씩 나누는 작업
         all_lines = []
-        for p in self.players_data:
+        for idx, p in enumerate(self.players_data, 1):
             player_name = p['name']
-            rank_val = p['rank']
+            
+            # 1. p['rank'] 대신 .get()과 idx를 조합해서 안전하게 가져오기
+            rank_val = p.get('rank', idx)
+            
             trophy_val = p['trophies']
-            clan_name = p.get("clan", {}).get("name", "")
+            
+            # 2. 클랜 정보도 안전하게 가져오기
+            clan_info = p.get("clan")
+            clan_name = clan_info.get("name", "") if clan_info else ""
             
             display_text = f"{player_name} ({trophy_val})"
             
