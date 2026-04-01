@@ -233,7 +233,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=10, minute=15, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=10, minute=35, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
@@ -269,6 +269,8 @@ async def daily_task(channel_a, channel_b):
                     # 나중에 누가 어느 클랜인지 알 수 있게 이름표 달아주기
                     m['clan'] = {'name': info["name"]}
                 all_combined_members.extend(members)
+
+        print(f"📊 총합 멤버 수: {len(all_combined_members)}명")
 
         if all_combined_members:
             # 1. 전체 인원을 트로피 순으로 정렬
