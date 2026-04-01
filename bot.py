@@ -9,6 +9,8 @@ import os
 import io
 from dotenv import load_dotenv
 from datetime import datetime, timedelta, timezone
+import pandas as pd
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
 # --- 서버 설정 (Koyeb 유지용) ---
 class Handler(BaseHTTPRequestHandler):
@@ -105,58 +107,86 @@ class RankingView(View):
         self.current_page = (self.current_page + 1) % len(self.chunks)
         await interaction.response.edit_message(embed=self.create_embed(), view=self)
     
-    @discord.ui.button(label="📄 파일로 내보내기", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="📊 엑셀 리포트 생성", style=discord.ButtonStyle.success)
     async def export_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # 1. 지연 응답 처리 (API 호출이 많으므로 필수)
         await interaction.response.defer(ephemeral=True)
         
-        content = "Name,Tag,Clan,Clan Tag,Global Ranking\n"
-        headers = {"Authorization": f"Bearer {API_KEY}"}
+        headers_list = ["Name", "Tag", "Clan", "Clan Tag", "Trophies", "Global Ranking"]
+        rows = []
+        
+        # 1. 데이터 수집 (비동기 세션)
+        api_headers = {"Authorization": f"Bearer {API_KEY}"}
         proxy_url = os.environ.get("PROXY_URL")
 
         async with aiohttp.ClientSession() as session:
             for p in self.players_data:
-                player_name = p['name']
                 player_tag = p['tag']
-                # daily_task에서 저장해둔 clan_name과 clan_tag 가져오기
-                clan_name = p.get('clan', {}).get('name', 'N/A')
-                clan_tag = p.get('clan_tag', 'N/A')
-
                 safe_p_tag = player_tag.replace("#", "%23")
                 player_url = f"https://api.clashofclans.com/v1/players/{safe_p_tag}"
                 
                 global_rank = "N/A"
                 try:
-                    async with session.get(player_url, headers=headers, proxy=proxy_url, timeout=10) as res:
+                    async with session.get(player_url, headers=api_headers, proxy=proxy_url, timeout=10) as res:
                         if res.status == 200:
-                            player_detail = await res.json()
-                            
-                            # ⭐ 보내주신 데이터 구조에 맞춰서 추출
-                            legend_stats = player_detail.get("legendStatistics", {})
-                            current_season = legend_stats.get("currentSeason", {})
-                            
-                            # 만약 legendStatistics가 없거나 그 안에 rank가 없는 경우 대비
-                            global_rank = current_season.get("rank", "N/A")
-                            
-                            print(f"✅ {player_name} ({player_tag}) 랭킹: {global_rank}")
-                        else:
-                            print(f"❌ 조회 실패: {player_name} (Status: {res.status})")
-                except Exception as e:
-                    print(f"⚠️ 에러 발생: {player_name} -> {e}")
+                            data = await res.json()
+                            legend_stats = data.get("legendStatistics", {})
+                            global_rank = legend_stats.get("currentSeason", {}).get("rank", "N/A")
+                except: pass
 
-                # CSV 형식이 깨지지 않도록 이름과 클랜명을 큰따옴표로 감싸줌
-                content += f"\"{player_name}\",\"{player_tag}\",\"{clan_name}\",\"{clan_tag}\",{global_rank}\n"
-                
-                # 심장박동 유지를 위해 아주 짧게 대기
+                rows.append([
+                    p['name'], p['tag'], 
+                    p.get('clan', {}).get('name', 'N/A'),
+                    p.get('clan_tag', 'N/A'),
+                    p['trophies'], global_rank
+                ])
                 await asyncio.sleep(0.01)
 
-        # 2. 파일 생성 및 전송
-        file_data = io.BytesIO(content.encode('utf-8-sig'))
-        file_name = f"Global_Rank_{datetime.now().strftime('%m%d')}.csv"
-        discord_file = discord.File(file_data, filename=file_name)
+        # 2. Pandas 데이터프레임 생성
+        df = pd.DataFrame(rows, columns=headers_list)
 
-        await interaction.followup.send(f"📊 {len(self.players_data)}명의 상세 데이터를 생성했습니다.", file=discord_file)
+        # 3. 엑셀 파일 디자인 (메모리 상에서 처리)
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Ranking')
+            workbook = writer.book
+            worksheet = writer.sheets['Ranking']
 
+            # --- 디자인 입히기 ---
+            # 색상 정의
+            header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid") # 진한 파랑
+            header_font = Font(color="FFFFFF", bold=True, size=12) # 흰색 볼드
+            odd_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid") # 흰색
+            even_fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid") # 연한 회색
+            thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), 
+                                top=Side(style='thin'), bottom=Side(style='thin'))
+
+            # 헤더 스타일 적용
+            for col_num, value in enumerate(df.columns, 1):
+                cell = worksheet.cell(row=1, column=col_num)
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = Alignment(horizontal='center')
+                cell.border = thin_border
+
+            # 데이터 행 스타일 (줄무늬 & 테두리) 적용
+            for row_num in range(2, len(rows) + 2):
+                row_fill = even_fill if row_num % 2 == 1 else odd_fill
+                for col_num in range(1, len(headers_list) + 1):
+                    cell = worksheet.cell(row=row_num, column=col_num)
+                    cell.fill = row_fill
+                    cell.border = thin_border
+                    cell.alignment = Alignment(horizontal='left' if col_num <= 4 else 'center')
+
+            # 열 너비 자동 조절 (넉넉하게)
+            column_widths = [20, 15, 15, 15, 12, 18]
+            for i, width in enumerate(column_widths, 1):
+                worksheet.column_dimensions[worksheet.cell(row=1, column=i).column_letter].width = width
+
+        # 4. 파일 전송
+        output.seek(0)
+        file_name = f"Clan_Ranking_Report_{datetime.now().strftime('%m%d')}.xlsx"
+        await interaction.followup.send("✨ 디자인이 적용된 엑셀 리포트를 생성했습니다.", 
+                                       file=discord.File(output, filename=file_name))
     # 🔄 새로고침 버튼 추가 (초록색)
     '''@discord.ui.button(label="🔄", style=discord.ButtonStyle.secondary)
     async def refresh_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -297,7 +327,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=14, minute=2, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=14, minute=18, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
