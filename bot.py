@@ -36,6 +36,10 @@ class RankingView(View):
     def update_chunks(self):
         # 플레이어 데이터를 100명씩 나누는 작업
         all_lines = []
+
+        # 현재 이 뷰가 '국내 랭킹'용인지 확인 (제목으로 판단)
+        is_korea_ranking = "Korea Ranking" in self.title
+
         for idx, p in enumerate(self.players_data, 1):
             player_name = p['name']
             
@@ -50,12 +54,19 @@ class RankingView(View):
             
             display_text = f"{player_name} ({trophy_val})"
             
-            if "백의" in clan_name:
-                line = f"{rank_val}. [**{display_text} (백의)**](https://clashofclans.com)"
-            elif "적의" in clan_name:
-                line = f"{rank_val}. [**{display_text} (적의)**](https://clashofclans.com)"
+            # 1. 국내 랭킹(채널 A)일 때만 강조 로직 적용
+            if is_korea_ranking:
+                if "백의" in clan_name:
+                    line = f"{rank_val}. [**{display_text} (백의)**](https://clashofclans.com)"
+                elif "적의" in clan_name:
+                    line = f"{rank_val}. [**{display_text} (적의)**](https://clashofclans.com)"
+                else:
+                    line = f"{rank_val}. {player_name} ({trophy_val})"
+            
+            # 2. 클랜 랭킹(채널 B)일 때는 평범하게 출력
             else:
                 line = f"{rank_val}. {player_name} ({trophy_val})"
+
             all_lines.append(line)
         
         self.chunks = [all_lines[i : i + self.chunk_size] for i in range(0, len(all_lines), self.chunk_size)]
@@ -222,7 +233,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=9, minute=32, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=9, minute=40, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
