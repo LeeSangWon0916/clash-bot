@@ -233,7 +233,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=10, minute=35, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=11, minute=3, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
@@ -254,7 +254,11 @@ async def daily_task(channel_a, channel_b):
         clan_info_list = [
             {"name": "백의", "tag": os.environ.get("CLAN_TAG_WHITE")},
             {"name": "적의", "tag": os.environ.get("CLAN_TAG_RED")},
-            {"name": "신의", "tag": os.environ.get("CLAN_TAG_GOD")}
+            {"name": "신의", "tag": os.environ.get("CLAN_TAG_GOD")},
+            {"name": "백의종군", "tag": os.environ.get("CLAN_TAG_BJ")},
+            {"name": "Onda2", "tag": os.environ.get("CLAN_TAG_ONDA2")},
+            {"name": "On다", "tag": os.environ.get("CLAN_TAG_ONDA")},
+            {"name": "KoreaClan", "tag": os.environ.get("CLAN_TAG_KOREA")}
         ]
 
         all_combined_members = []
@@ -266,9 +270,10 @@ async def daily_task(channel_a, channel_b):
             members = get_clan_members(tag)
             if members:
                 for m in members:
-                    # 나중에 누가 어느 클랜인지 알 수 있게 이름표 달아주기
-                    m['clan'] = {'name': info["name"]}
-                all_combined_members.extend(members)
+                    league_tier = m.get("leagueTier", {})
+                    if league_tier and league_tier.get("name") == "Legend League":
+                        m['clan'] = {'name': info["name"]}
+                        all_combined_members.append(m)
 
         print(f"📊 총합 멤버 수: {len(all_combined_members)}명")
 
@@ -277,7 +282,7 @@ async def daily_task(channel_a, channel_b):
             all_combined_members.sort(key=lambda x: int(x.get('trophies', 0)), reverse=True)
             
             # 2. 상위 50명만 컷
-            top_50_combined = all_combined_members[:50]
+            top_50_combined = all_combined_members[:100]
             
             # 3. 1등부터 순위 새로 매기기
             for idx, m in enumerate(top_50_combined, 1):
