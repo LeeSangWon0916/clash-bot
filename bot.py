@@ -65,7 +65,12 @@ class RankingView(View):
             
             # 2. 클랜 랭킹(채널 B)일 때는 평범하게 출력
             else:
-                line = f"{rank_val}. {player_name} ({trophy_val})"
+                rank_str = f"{rank_val:>2}" # 순위 (예:  1, 10, 100)
+                trophy_str = f"{trophy_val:>4}" # 트로피 (예: 5450)
+
+                # 최종 출력 형태: `33` `5245` 이름 | 클랜명
+                line = f"[{rank_str}](https://clashofclans.com) `{trophy_str}` {player_name} | {clan_name}"
+                # line = f"{rank_val}. {player_name} ({trophy_val})"
 
             all_lines.append(line)
         
@@ -80,7 +85,7 @@ class RankingView(View):
             color=0x1ABC9C,
             # timestamp=datetime.now()
         )
-        embed.set_footer(text=f"Page {self.current_page + 1}/{len(self.chunks)} | 오늘 오후 14:00")
+        embed.set_footer(text=f"Page {self.current_page + 1}/{len(self.chunks)} • 오늘 오후 14:00")
         return embed
 
     @discord.ui.button(label="◀", style=discord.ButtonStyle.primary)
@@ -233,7 +238,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=11, minute=3, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=11, minute=13, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
