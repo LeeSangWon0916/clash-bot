@@ -135,7 +135,7 @@ TOKEN = os.environ["DISCORD_TOKEN"]
 API_KEY = os.environ["CLASH_API_KEY"]
 CHANNEL_ID_A = int(os.environ["CHANNEL_ID_A"]) # 전체 로컬 랭킹용
 CHANNEL_ID_B = int(os.environ["CHANNEL_ID_B"]) # 클랜 전용 랭킹용
-CLAN_TAG = os.environ["CLAN_TAG"]
+# CLAN_TAG = os.environ["CLAN_TAG"]
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -233,7 +233,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=9, minute=40, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=10, minute=15, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
@@ -249,15 +249,46 @@ async def daily_task(channel_a, channel_b):
         if players:
             await send_ranking_with_buttons(channel_a, players, f"Korea Ranking ({date_str})", fetch_func=get_top_players)
 
-        clan_members = get_clan_members(CLAN_TAG)
-        if clan_members:
-            # 클랜원 랭킹은 순위를 1부터 다시 매겨서 전송
-            for idx, m in enumerate(clan_members, 1):
-                m['rank'] = idx  # 내부 순위로 덮어쓰기
-                # 클랜원 랭킹이니까 clan_name은 우리 클랜으로 고정
-                m['clan'] = {'name': '백의'} 
-                
-            await send_ranking_with_buttons(channel_b, clan_members, f"백의 클랜원 랭킹 ({date_str})", fetch_func=lambda: get_clan_members(CLAN_TAG))
+        # 2. 채널 B (통합 클랜 랭킹: 백의, 적의, 신의)
+        # 환경 변수에서 3개 클랜 태그를 각각 가져옴
+        clan_info_list = [
+            {"name": "백의", "tag": os.environ.get("CLAN_TAG_WHITE")},
+            {"name": "적의", "tag": os.environ.get("CLAN_TAG_RED")},
+            {"name": "신의", "tag": os.environ.get("CLAN_TAG_GOD")}
+        ]
+
+        all_combined_members = []
+
+        for info in clan_info_list:
+            tag = info["tag"]
+            if not tag: continue # 태그가 설정 안 되어 있으면 패스
+            
+            members = get_clan_members(tag)
+            if members:
+                for m in members:
+                    # 나중에 누가 어느 클랜인지 알 수 있게 이름표 달아주기
+                    m['clan'] = {'name': info["name"]}
+                all_combined_members.extend(members)
+
+        if all_combined_members:
+            # 1. 전체 인원을 트로피 순으로 정렬
+            all_combined_members.sort(key=lambda x: int(x.get('trophies', 0)), reverse=True)
+            
+            # 2. 상위 50명만 컷
+            top_50_combined = all_combined_members[:50]
+            
+            # 3. 1등부터 순위 새로 매기기
+            for idx, m in enumerate(top_50_combined, 1):
+                m['rank'] = idx
+            
+            # 4. 채널 B에 전송
+            # 제목에 "Korea"가 안 들어가니까 아까 설정한 대로 파란색 링크 없이 출력될 거야
+            await send_ranking_with_buttons(
+                channel_b, 
+                top_50_combined, 
+                f"클랜 통합 랭킹 TOP 50 ({date_str})",
+                fetch_func=None # 통합 데이터는 새로고침 로직이 복잡하니 일단 제외
+            )
 
         print(f"[{datetime.now(KST).strftime('%Y-%m-%d %H:%M:%S')}] 모든 랭킹 전송 완료!")
         await asyncio.sleep(60)
@@ -283,7 +314,7 @@ async def on_ready():
     except Exception as e:
         print(f"❌ 오류 발생: {e}")
 
-@client.event
+'''@client.event
 async def on_message(message):
     # 봇 자신이 쓴 메시지에는 반응하지 않게 방어
     if message.author == client.user:
@@ -306,6 +337,6 @@ async def on_message(message):
                 fetch_func=lambda: get_clan_members(CLAN_TAG)
             )
         
-        await message.channel.send("✅ 테스트 출력이 완료되었습니다!")
+        await message.channel.send("✅ 테스트 출력이 완료되었습니다!")'''
 
 client.run(TOKEN)
