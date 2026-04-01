@@ -68,7 +68,7 @@ class RankingView(View):
                 rank_str = f"{rank_val:>2}" # 순위 (예:  1, 10, 100)
                 trophy_str = f"{trophy_val:>4}" # 트로피 (예: 5450)
 
-                rank_link = f"[`{rank_str}`](https://clashofclans.com)"
+                rank_link = f"[{rank_str}](https://clashofclans.com)"
 
                 # 최종 출력 형태: `33` `5245` 이름 | 클랜명
                 line = f"{rank_link} `{trophy_str}` {player_name} | {clan_name}"
@@ -240,7 +240,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=11, minute=23, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=11, minute=27, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
