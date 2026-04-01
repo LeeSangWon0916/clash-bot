@@ -107,17 +107,18 @@ class RankingView(View):
     
     @discord.ui.button(label="📄 파일로 내보내기", style=discord.ButtonStyle.secondary)
     async def export_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # 1. 지연 응답 처리 (API 호출이 많으므로 필수)
         await interaction.response.defer(ephemeral=True)
         
         content = "Name,Tag,Clan,Clan Tag,Global Ranking\n"
         headers = {"Authorization": f"Bearer {API_KEY}"}
         proxy_url = os.environ.get("PROXY_URL")
 
-        # aiohttp 세션 생성
         async with aiohttp.ClientSession() as session:
             for p in self.players_data:
                 player_name = p['name']
                 player_tag = p['tag']
+                # daily_task에서 저장해둔 clan_name과 clan_tag 가져오기
                 clan_name = p.get('clan', {}).get('name', 'N/A')
                 clan_tag = p.get('clan_tag', 'N/A')
 
@@ -126,26 +127,35 @@ class RankingView(View):
                 
                 global_rank = "N/A"
                 try:
-                    # aiohttp를 사용한 비동기 호출 (프록시 포함)
                     async with session.get(player_url, headers=headers, proxy=proxy_url, timeout=10) as res:
                         if res.status == 200:
                             player_detail = await res.json()
-                            current_season = player_detail.get("currentSeason", {})
+                            
+                            # ⭐ 보내주신 데이터 구조에 맞춰서 추출
+                            legend_stats = player_detail.get("legendStatistics", {})
+                            current_season = legend_stats.get("currentSeason", {})
+                            
+                            # 만약 legendStatistics가 없거나 그 안에 rank가 없는 경우 대비
                             global_rank = current_season.get("rank", "N/A")
+                            
+                            print(f"✅ {player_name} ({player_tag}) 랭킹: {global_rank}")
                         else:
-                            print(f"조회 실패: {player_name} ({res.status})")
+                            print(f"❌ 조회 실패: {player_name} (Status: {res.status})")
                 except Exception as e:
-                    print(f"에러 발생: {player_name} -> {e}")
+                    print(f"⚠️ 에러 발생: {player_name} -> {e}")
 
-                content += f"{player_name},{player_tag},{clan_name},{clan_tag},{global_rank}\n"
+                # CSV 형식이 깨지지 않도록 이름과 클랜명을 큰따옴표로 감싸줌
+                content += f"\"{player_name}\",\"{player_tag}\",\"{clan_name}\",\"{clan_tag}\",{global_rank}\n"
                 
-                # 봇의 심장박동이 끊기지 않도록 중간중간 길을 터줌
+                # 심장박동 유지를 위해 아주 짧게 대기
                 await asyncio.sleep(0.01)
 
-        # 파일 생성 및 전송 (기존과 동일)
+        # 2. 파일 생성 및 전송
         file_data = io.BytesIO(content.encode('utf-8-sig'))
-        discord_file = discord.File(file_data, filename=f"Global_Rank_{datetime.now().strftime('%m%d')}.csv")
-        await interaction.followup.send("📊 전설 리그 상세 랭킹 파일을 생성했습니다.", file=discord_file)
+        file_name = f"Global_Rank_{datetime.now().strftime('%m%d')}.csv"
+        discord_file = discord.File(file_data, filename=file_name)
+
+        await interaction.followup.send(f"📊 {len(self.players_data)}명의 상세 데이터를 생성했습니다.", file=discord_file)
 
     # 🔄 새로고침 버튼 추가 (초록색)
     '''@discord.ui.button(label="🔄", style=discord.ButtonStyle.secondary)
@@ -287,7 +297,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=13, minute=48, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=14, minute=2, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
