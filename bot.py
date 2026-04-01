@@ -23,98 +23,36 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.end_headers()
 
-class RankingView(View):
-    def __init__(self, players_data, title, fetch_func):
-        super().__init__(timeout=None)
-        self.players_data = players_data # 현재 데이터
-        self.title = title
-        self.fetch_func = fetch_func     # 데이터를 새로 가져올 함수
-        self.current_page = 0
-        self.chunk_size = 100
-        self.update_chunks()
+# 1. 구글 시트 버튼 (링크 연결형)
+class GoogleSheetButton(discord.ui.Button):
+    def __init__(self):
+        # 실제 사용하는 구글 스프레드시트 URL을 입력해줘
+        url = "https://docs.google.com/spreadsheets/d/your_sheet_id"
+        super().__init__(label="Google Sheet", style=discord.ButtonStyle.link, url=url)
 
-        # ⭐ 페이지가 1개 이하일 경우(클랜 랭킹 등) 버튼 제거
-        if len(self.chunks) <= 1:
-            self.remove_item(self.prev_button)
-            self.remove_item(self.next_button)
-        if "Korea Ranking" in self.title:
-            self.remove_item(self.export_button)
+# 2. 엑셀 다운로드 버튼 (본인만 볼 수 있게 전송)
+class DownloadButton(discord.ui.Button):
+    def __init__(self, players_data):
+        super().__init__(label="Download", style=discord.ButtonStyle.secondary)
+        self.players_data = players_data
 
-    def update_chunks(self):
-        # 플레이어 데이터를 100명씩 나누는 작업
-        all_lines = []
-
-        # 현재 이 뷰가 '국내 랭킹'용인지 확인 (제목으로 판단)
-        is_korea_ranking = "Korea Ranking" in self.title
-
-        for idx, p in enumerate(self.players_data, 1):
-            player_name = p['name']
-            
-            # 1. p['rank'] 대신 .get()과 idx를 조합해서 안전하게 가져오기
-            rank_val = p.get('rank', idx)
-            
-            trophy_val = p['trophies']
-            
-            # 2. 클랜 정보도 안전하게 가져오기
-            clan_info = p.get("clan")
-            clan_name = clan_info.get("name", "") if clan_info else ""
-            
-            display_text = f"{player_name} ({trophy_val})"
-            
-            # 1. 국내 랭킹(채널 A)일 때만 강조 로직 적용
-            if is_korea_ranking:
-                if "백의" in clan_name:
-                    line = f"{rank_val}. [**{display_text} (백의)**](https://clashofclans.com)"
-                elif "적의" in clan_name:
-                    line = f"{rank_val}. [**{display_text} (적의)**](https://clashofclans.com)"
-                else:
-                    line = f"{rank_val}. {player_name} ({trophy_val})"
-            
-            # 2. 클랜 랭킹(채널 B)일 때는 평범하게 출력
-            else:
-                rank_str = f"{rank_val:>2}" # 순위 (예:  1, 10, 100)
-                trophy_str = f"{trophy_val:>4}" # 트로피 (예: 5450)
-
-                #rank_link = f"['{rank_str}'](https://clashofclans.com)"
-
-                # 최종 출력 형태: `33` `5245` 이름 | 클랜명
-                line = f"[`{rank_str}`](https://clashofclans.com) `{trophy_str}` {player_name} | {clan_name}"
-                # line = f"{rank_val}. {player_name} ({trophy_val})"
-
-            all_lines.append(line)
-        
-        self.chunks = [all_lines[i : i + self.chunk_size] for i in range(0, len(all_lines), self.chunk_size)]
-
-    def create_embed(self):
-        chunk = self.chunks[self.current_page]
-
-        embed = discord.Embed(
-            title=self.title,
-            description="\n".join(chunk),
-            color=0x1ABC9C,
-            # timestamp=datetime.now()
-        )
-        embed.set_footer(text=f"Page {self.current_page + 1}/{len(self.chunks)} • 오늘 오후 14:00")
-        return embed
-
-    @discord.ui.button(label="◀", style=discord.ButtonStyle.primary)
-    async def prev_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        self.current_page = (self.current_page - 1) % len(self.chunks)
-        await interaction.response.edit_message(embed=self.create_embed(), view=self)
-
-    @discord.ui.button(label="▶", style=discord.ButtonStyle.primary)
-    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        self.current_page = (self.current_page + 1) % len(self.chunks)
-        await interaction.response.edit_message(embed=self.create_embed(), view=self)
-    
-    @discord.ui.button(label="📊 엑셀 리포트 생성", style=discord.ButtonStyle.success)
-    async def export_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def callback(self, interaction: discord.Interaction):
+        # 눌렀을 때 "생각 중..." 표시 (나에게만 보임)
         await interaction.response.defer(ephemeral=True)
         
+        # 엑셀 파일 생성 로직 호출
+        excel_file = await self.generate_excel() 
+        
+        # 파일 전송 (ephemeral=True로 본인만 확인 가능)
+        await interaction.followup.send(
+            "✨ 엑셀 리포트 생성이 완료되었습니다.", 
+            file=excel_file, 
+            ephemeral=True
+        )
+
+    async def generate_excel(self):
         headers_list = ["Name", "Tag", "Clan", "Clan Tag", "Trophies", "Global Ranking"]
         rows = []
-        
-        # 1. 데이터 수집 (비동기 세션)
         api_headers = {"Authorization": f"Bearer {API_KEY}"}
         proxy_url = os.environ.get("PROXY_URL")
 
@@ -141,26 +79,21 @@ class RankingView(View):
                 ])
                 await asyncio.sleep(0.01)
 
-        # 2. Pandas 데이터프레임 생성
         df = pd.DataFrame(rows, columns=headers_list)
-
-        # 3. 엑셀 파일 디자인 (메모리 상에서 처리)
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             df.to_excel(writer, index=False, sheet_name='Ranking')
             workbook = writer.book
             worksheet = writer.sheets['Ranking']
 
-            # --- 디자인 입히기 ---
-            # 색상 정의
-            header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid") # 진한 파랑
-            header_font = Font(color="FFFFFF", bold=True, size=12) # 흰색 볼드
-            odd_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid") # 흰색
-            even_fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid") # 연한 회색
+            # 디자인 설정
+            header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+            header_font = Font(color="FFFFFF", bold=True, size=12)
+            odd_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
+            even_fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
             thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), 
                                 top=Side(style='thin'), bottom=Side(style='thin'))
 
-            # 헤더 스타일 적용
             for col_num, value in enumerate(df.columns, 1):
                 cell = worksheet.cell(row=1, column=col_num)
                 cell.fill = header_fill
@@ -168,7 +101,6 @@ class RankingView(View):
                 cell.alignment = Alignment(horizontal='center')
                 cell.border = thin_border
 
-            # 데이터 행 스타일 (줄무늬 & 테두리) 적용
             for row_num in range(2, len(rows) + 2):
                 row_fill = even_fill if row_num % 2 == 1 else odd_fill
                 for col_num in range(1, len(headers_list) + 1):
@@ -177,16 +109,82 @@ class RankingView(View):
                     cell.border = thin_border
                     cell.alignment = Alignment(horizontal='left' if col_num <= 4 else 'center')
 
-            # 열 너비 자동 조절 (넉넉하게)
             column_widths = [20, 15, 15, 15, 12, 18]
             for i, width in enumerate(column_widths, 1):
                 worksheet.column_dimensions[worksheet.cell(row=1, column=i).column_letter].width = width
 
-        # 4. 파일 전송
         output.seek(0)
-        file_name = f"Clan_Ranking_Report_{datetime.now().strftime('%m%d')}.xlsx"
-        await interaction.followup.send("✨ 디자인이 적용된 엑셀 리포트를 생성했습니다.", 
-                                       file=discord.File(output, filename=file_name))
+        return discord.File(output, filename=f"Clan_Ranking_Report_{datetime.now().strftime('%m%d')}.xlsx")
+
+class RankingView(View):
+    def __init__(self, players_data, title, fetch_func):
+        super().__init__(timeout=None)
+        self.players_data = players_data
+        self.title = title
+        self.fetch_func = fetch_func
+        self.current_page = 0
+        self.chunk_size = 100
+        self.update_chunks()
+
+        # 페이지가 1개 이하일 경우 네비게이션 버튼 제거
+        if len(self.chunks) <= 1:
+            self.remove_item(self.prev_button)
+            self.remove_item(self.next_button)
+        
+        # 채널 B(연합 랭킹)일 때만 구글 시트와 다운로드 버튼 추가
+        if "Korea Ranking" not in self.title:
+            self.add_item(GoogleSheetButton())
+            self.add_item(DownloadButton(self.players_data))
+
+    def update_chunks(self):
+        all_lines = []
+        is_korea_ranking = "Korea Ranking" in self.title
+
+        for idx, p in enumerate(self.players_data, 1):
+            player_name = p['name']
+            rank_val = p.get('rank', idx)
+            trophy_val = p['trophies']
+            clan_info = p.get("clan")
+            clan_name = clan_info.get("name", "") if clan_info else ""
+            
+            if is_korea_ranking:
+                display_text = f"{player_name} ({trophy_val})"
+                if "백의" in clan_name:
+                    line = f"{rank_val}. [**{display_text} (백의)**](https://clashofclans.com)"
+                elif "적의" in clan_name:
+                    line = f"{rank_val}. [**{display_text} (적의)**](https://clashofclans.com)"
+                else:
+                    line = f"{rank_val}. {player_name} ({trophy_val})"
+            else:
+                rank_str = f"{rank_val:>2}"
+                trophy_str = f"{trophy_val:>4}"
+                # 정렬된 파란색 랭킹 링크 스타일
+                line = f"[`{rank_str}`](https://clashofclans.com) `{trophy_str}` {player_name} | {clan_name}"
+
+            all_lines.append(line)
+        
+        self.chunks = [all_lines[i : i + self.chunk_size] for i in range(0, len(all_lines), self.chunk_size)]
+
+    def create_embed(self):
+        chunk = self.chunks[self.current_page]
+        embed = discord.Embed(
+            title=self.title,
+            description="\n".join(chunk),
+            color=0x1ABC9C,
+        )
+        # 푸터 날짜 고정 또는 datetime.now().strftime('%Y-%m-%d %H:%M') 사용 가능
+        embed.set_footer(text=f"Page {self.current_page + 1}/{len(self.chunks)} • 오늘 오후 14:00")
+        return embed
+
+    @discord.ui.button(label="◀", style=discord.ButtonStyle.primary)
+    async def prev_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.current_page = (self.current_page - 1) % len(self.chunks)
+        await interaction.response.edit_message(embed=self.create_embed(), view=self)
+
+    @discord.ui.button(label="▶", style=discord.ButtonStyle.primary)
+    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.current_page = (self.current_page + 1) % len(self.chunks)
+        await interaction.response.edit_message(embed=self.create_embed(), view=self)
     # 🔄 새로고침 버튼 추가 (초록색)
     '''@discord.ui.button(label="🔄", style=discord.ButtonStyle.secondary)
     async def refresh_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -327,7 +325,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=14, minute=21, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=14, minute=39, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
