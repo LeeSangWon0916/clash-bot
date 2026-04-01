@@ -5,6 +5,7 @@ from discord.ui import Button, View
 import requests
 import asyncio
 import os
+import io
 from dotenv import load_dotenv
 from datetime import datetime, timedelta, timezone
 
@@ -31,7 +32,10 @@ class RankingView(View):
 
         # ⭐ 페이지가 1개 이하일 경우(클랜 랭킹 등) 버튼 제거
         if len(self.chunks) <= 1:
-            self.clear_items() # 모든 버튼(◀, ▶ 등)을 뷰에서 삭제함
+            self.remove_item(self.prev_button)
+            self.remove_item(self.next_button)
+        if "Korea Ranking" in self.title:
+            self.remove_item(self.export_button)
 
     def update_chunks(self):
         # 플레이어 데이터를 100명씩 나누는 작업
@@ -99,6 +103,56 @@ class RankingView(View):
     async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.current_page = (self.current_page + 1) % len(self.chunks)
         await interaction.response.edit_message(embed=self.create_embed(), view=self)
+    
+    @discord.ui.button(label="📄 파일로 내보내기", style=discord.ButtonStyle.primary)
+    async def export_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+
+        # 1. 상호작용 지연 방지 (작업이 길어질 수 있으므로 "생각 중..." 상태로 만듦)
+        await interaction.response.defer(ephemeral=True)
+
+        # 1. 파일 내용 생성 (CSV 형식 추천)
+        content = "Name,Tag,Clan,Clan Tag,Global Ranking\n"
+
+        # 3. 각 플레이어별 상세 데이터 호출 (순번대로 진행)
+        for p in self.players_data:
+            player_name = p['name']
+            player_tag = p['tag'] # #LRQV82GV2 형식
+            clan_name = p.get('clan', {}).get('name', '알 수 없음')
+            # 기존 clan_info_list 등에서 저장해둔 태그가 없다면 p에서 가져오거나 수동 매칭 필요
+            # 여기서는 편의상 Clan Tag는 생략하거나 미리 저장된 값을 쓴다고 가정
+            clan_tag = p.get('clan_tag', '태그 미지정') 
+
+            # ⭐ 플레이어 상세 API 호출 (Global Ranking 정보 획득용)
+            safe_p_tag = player_tag.replace("#", "%23")
+            player_url = f"https://api.clashofclans.com/v1/players/{safe_p_tag}"
+            headers = {"Authorization": f"Bearer {API_KEY}"}
+            
+            global_rank = "N/A" # 기본값
+            try:
+                # 프록시 필수!
+                proxy_url = os.environ.get("PROXY_URL")
+                proxies = {"http": proxy_url, "https": proxy_url}
+                
+                res = requests.get(player_url, headers=headers, proxies=proxies, timeout=10)
+                if res.status_code == 200:
+                    player_detail = res.json()
+                    # currentSeason -> rank 추출
+                    current_season = player_detail.get("currentSeason", {})
+                    global_rank = current_season.get("rank", "N/A")
+            except Exception as e:
+                print(f"플레이어 {player_name} 상세 조회 실패: {e}")
+
+            # 4. 한 줄 추가
+            content += f"{player_name},{player_tag},{clan_name},{clan_tag},{global_rank}\n"
+            
+            # API 과부하 방지를 위해 아주 짧게 쉬어주기 (선택사항)
+            # await asyncio.sleep(0.05)
+
+        # 5. 파일 생성 및 전송
+        file_data = io.BytesIO(content.encode('utf-8-sig'))
+        discord_file = discord.File(file_data, filename=f"Global_Rank_{datetime.now().strftime('%m%d')}.csv")
+
+        await interaction.followup.send("📊 전설 리그 상세 랭킹 파일을 생성했습니다.", file=discord_file)
 
     # 🔄 새로고침 버튼 추가 (초록색)
     '''@discord.ui.button(label="🔄", style=discord.ButtonStyle.secondary)
@@ -280,6 +334,7 @@ async def daily_task(channel_a, channel_b):
                     league_tier = m.get("leagueTier", {})
                     if league_tier and league_tier.get("name") == "Legend League":
                         m['clan'] = {'name': info["name"]}
+                        m['clan_tag'] = tag
                         all_combined_members.append(m)
 
         print(f"📊 총합 멤버 수: {len(all_combined_members)}명")
