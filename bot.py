@@ -13,6 +13,7 @@ import pandas as pd
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+import json
 
 # --- 서버 설정 (Koyeb 유지용) ---
 class Handler(BaseHTTPRequestHandler):
@@ -28,29 +29,34 @@ class Handler(BaseHTTPRequestHandler):
 # 1. 구글 시트 버튼 (링크 연결형)
 class GoogleSheetButton(discord.ui.Button):
     def __init__(self, players_data):
-        super().__init__(label="Update Google Sheet", style=discord.ButtonStyle.success)
+        super().__init__(label="Google Sheet", style=discord.ButtonStyle.success)
         self.players_data = players_data
 
     async def callback(self, interaction: discord.Interaction):
-        # 본인에게만 보이도록 응답 시작
         await interaction.response.defer(ephemeral=True)
         
         try:
-            # 1. 구글 API 인증
+            # 1. Koyeb 환경 변수에서 JSON 문자열 읽어오기
+            creds_json_str = os.environ.get("CREDENTIALS_JSON")
+            if not creds_json_str:
+                return await interaction.followup.send("❌ Koyeb 환경 변수(CREDENTIALS_JSON)가 설정되지 않았습니다.", ephemeral=True)
+            
+            # 2. JSON 문자열을 파이썬 딕셔너리로 변환
+            creds_info = json.loads(creds_json_str)
+            
+            # 3. 딕셔너리 정보를 사용하여 인증 (파일명 대신 from_json_keyfile_dict 사용)
             scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-            creds = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', scope)
+            creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_info, scope)
             client = gspread.authorize(creds)
 
-            # 2. 시트 열기 (시트 이름 또는 키 입력)
-            doc = client.open_by_key("1ZXTm4gkUCoHlpsyk42h58bbGRaicRMwVPaa-90IKAYg") # URL의 /d/ 뒤에 있는 문자열
-            sheet = doc.get_worksheet(0) # 첫 번째 탭 선택
+            # 4. 시트 열기 (본인의 시트 ID를 넣으세요)
+            # 예: https://docs.google.com/spreadsheets/d/시트아이디/edit 에서 '시트아이디' 부분
+            doc = client.open_by_key("https://docs.google.com/spreadsheets/d/1ZXTm4gkUCoHlpsyk42h58bbGRaicRMwVPaa-90IKAYg/edit")
+            sheet = doc.get_worksheet(0)
 
-            # 3. 데이터 준비 (헤더 + 내용)
+            # 5. 데이터 준비 및 업데이트
             headers = ["Name", "Tag", "Clan", "Clan Tag", "Global Ranking", "Trophies"]
             rows = [headers]
-            
-            # API 호출 최소화를 위해 플레이어 상세 정보는 엑셀 때와 동일한 방식으로 미리 수집 권장
-            # 여기서는 간단하게 players_data 기반으로 작성
             for p in self.players_data:
                 rows.append([
                     p['name'], p['tag'], 
@@ -60,15 +66,14 @@ class GoogleSheetButton(discord.ui.Button):
                     p['trophies']
                 ])
 
-            # 4. 시트 전체 초기화 후 쓰기 (가장 깔끔한 방법)
             sheet.clear()
             sheet.update('A1', rows)
 
-            await interaction.followup.send("📗 구글 스프레드시트 업데이트가 완료되었습니다!", ephemeral=True)
-        
+            await interaction.followup.send("📗 구글 스프레드시트가 성공적으로 업데이트되었습니다!", ephemeral=True)
+
         except Exception as e:
             print(f"Google Sheet Error: {e}")
-            await interaction.followup.send(f"❌ 시트 업데이트 실패: {e}", ephemeral=True)
+            await interaction.followup.send(f"❌ 오류 발생: {e}", ephemeral=True)
 
 # 2. 엑셀 다운로드 버튼 (본인만 볼 수 있게 전송)
 class DownloadButton(discord.ui.Button):
@@ -173,7 +178,7 @@ class RankingView(View):
         
         # 채널 B(연합 랭킹)일 때만 구글 시트와 다운로드 버튼 추가
         if "Korea Ranking" not in self.title:
-            self.add_item(GoogleSheetButton())
+            self.add_item(GoogleSheetButton(self.players_data))
             self.add_item(DownloadButton(self.players_data))
 
     def update_chunks(self):
@@ -365,7 +370,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=12, minute=24, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=12, minute=35, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
