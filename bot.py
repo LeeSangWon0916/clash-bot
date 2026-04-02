@@ -51,7 +51,7 @@ class GoogleSheetButton(discord.ui.Button):
 
             # 4. 시트 열기 (본인의 시트 ID를 넣으세요)
             # 예: https://docs.google.com/spreadsheets/d/시트아이디/edit 에서 '시트아이디' 부분
-            doc = client.open_by_key("https://docs.google.com/spreadsheets/d/1ZXTm4gkUCoHlpsyk42h58bbGRaicRMwVPaa-90IKAYg/edit")
+            doc = client.open_by_key("1ZXTm4gkUCoHlpsyk42h58bbGRaicRMwVPaa-90IKAYg")
             sheet = doc.get_worksheet(0)
 
             # 5. 데이터 준비 및 업데이트
@@ -370,7 +370,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=12, minute=50, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=12, minute=56, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
