@@ -33,47 +33,74 @@ class GoogleSheetButton(discord.ui.Button):
         self.players_data = players_data
 
     async def callback(self, interaction: discord.Interaction):
+        # 1. 본인에게만 보이는 진행 상태 메시지
         await interaction.response.defer(ephemeral=True)
         
         try:
-            # 1. Koyeb 환경 변수에서 JSON 문자열 읽어오기
+            # 환경 변수 및 인증 로직
             creds_json_str = os.environ.get("CREDENTIALS_JSON")
-            if not creds_json_str:
-                return await interaction.followup.send("❌ Koyeb 환경 변수(CREDENTIALS_JSON)가 설정되지 않았습니다.", ephemeral=True)
-            
-            # 2. JSON 문자열을 파이썬 딕셔너리로 변환
             creds_info = json.loads(creds_json_str)
+            if "private_key" in creds_info:
+                creds_info["private_key"] = creds_info["private_key"].replace("\\n", "\n")
             
-            # 3. 딕셔너리 정보를 사용하여 인증 (파일명 대신 from_json_keyfile_dict 사용)
             scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
             creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_info, scope)
             client = gspread.authorize(creds)
 
-            # 4. 시트 열기 (본인의 시트 ID를 넣으세요)
-            # 예: https://docs.google.com/spreadsheets/d/시트아이디/edit 에서 '시트아이디' 부분
-            doc = client.open_by_key("1ZXTm4gkUCoHlpsyk42h58bbGRaicRMwVPaa-90IKAYg")
+            # 시트 열기 (URL 방식이 가장 확실해)
+            sheet_url = "https://docs.google.com/spreadsheets/d/1ZXTm4gkUCoHlpsyk42h58bbGRaicRMwVPaa-90IKAYg/edit?hl=ko"
+            doc = client.open_by_url(sheet_url)
             sheet = doc.get_worksheet(0)
 
-            # 5. 데이터 준비 및 업데이트
+            # 2. 헤더 설정 (순서 변경: Ranking -> Trophies)
             headers = ["Name", "Tag", "Clan", "Clan Tag", "Global Ranking", "Trophies"]
             rows = [headers]
-            for p in self.players_data:
-                rows.append([
-                    p['name'], p['tag'], 
-                    p.get('clan', {}).get('name', 'N/A'),
-                    p.get('clan_tag', 'N/A'),
-                    p.get('global_rank', 'N/A'),
-                    p['trophies']
-                ])
 
+            # API 호출을 위한 설정
+            api_headers = {"Authorization": f"Bearer {API_KEY}"}
+            proxy_url = os.environ.get("PROXY_URL")
+
+            # 3. 데이터 수집 (상세 정보 API 호출 포함)
+            async with aiohttp.ClientSession() as session:
+                for p in self.players_data:
+                    player_tag = p['tag']
+                    safe_p_tag = player_tag.replace("#", "%23")
+                    player_url = f"https://api.clashofclans.com/v1/players/{safe_p_tag}"
+                    
+                    global_rank = "N/A"
+                    try:
+                        async with session.get(player_url, headers=api_headers, proxy=proxy_url, timeout=10) as res:
+                            if res.status == 200:
+                                data = await res.json()
+                                # 전설 리그 랭킹 정보 추출
+                                legend_stats = data.get("legendStatistics", {})
+                                global_rank = legend_stats.get("currentSeason", {}).get("rank", "N/A")
+                            else:
+                                print(f"❌ {p['name']} API 호출 실패: {res.status}")
+                    except Exception as e:
+                        print(f"⚠️ API 에러 ({p['name']}): {e}")
+
+                    # 4. 행 추가 (순서 주의: global_rank가 먼저)
+                    rows.append([
+                        p['name'], 
+                        p['tag'], 
+                        p.get('clan', {}).get('name', 'N/A'),
+                        p.get('clan_tag', 'N/A'),
+                        global_rank, 
+                        p['trophies']
+                    ])
+                    # API 과부하 방지를 위한 미세한 대기
+                    await asyncio.sleep(0.01)
+
+            # 5. 시트 업데이트
             sheet.clear()
             sheet.update('A1', rows)
 
-            await interaction.followup.send("📗 구글 스프레드시트가 성공적으로 업데이트되었습니다!", ephemeral=True)
+            await interaction.followup.send("📗 구글 시트에 세계 랭킹 정보를 포함하여 업데이트했습니다!", ephemeral=True)
 
         except Exception as e:
             print(f"Google Sheet Error: {e}")
-            await interaction.followup.send(f"❌ 오류 발생: {e}", ephemeral=True)
+            await interaction.followup.send(f"❌ 시트 업데이트 중 오류 발생: {e}", ephemeral=True)
 
 # 2. 엑셀 다운로드 버튼 (본인만 볼 수 있게 전송)
 class DownloadButton(discord.ui.Button):
@@ -82,13 +109,8 @@ class DownloadButton(discord.ui.Button):
         self.players_data = players_data
 
     async def callback(self, interaction: discord.Interaction):
-        # 눌렀을 때 "생각 중..." 표시 (나에게만 보임)
         await interaction.response.defer(ephemeral=True)
-        
-        # 엑셀 파일 생성 로직 호출
         excel_file = await self.generate_excel() 
-        
-        # 파일 전송 (ephemeral=True로 본인만 확인 가능)
         await interaction.followup.send(
             "✨ 엑셀 리포트 생성이 완료되었습니다.", 
             file=excel_file, 
@@ -96,6 +118,7 @@ class DownloadButton(discord.ui.Button):
         )
 
     async def generate_excel(self):
+        # 1. 헤더 순서 변경 (Global Ranking을 Trophies 앞으로)
         headers_list = ["Name", "Tag", "Clan", "Clan Tag", "Global Ranking", "Trophies"]
         rows = []
         api_headers = {"Authorization": f"Bearer {API_KEY}"}
@@ -116,6 +139,7 @@ class DownloadButton(discord.ui.Button):
                             global_rank = legend_stats.get("currentSeason", {}).get("rank", "N/A")
                 except: pass
 
+                # 2. 데이터 행 추가 순서 변경 (global_rank를 trophies 앞으로)
                 rows.append([
                     p['name'], p['tag'], 
                     p.get('clan', {}).get('name', 'N/A'),
@@ -131,7 +155,6 @@ class DownloadButton(discord.ui.Button):
             workbook = writer.book
             worksheet = writer.sheets['Ranking']
 
-            # 디자인 설정
             header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
             header_font = Font(color="FFFFFF", bold=True, size=12)
             odd_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
@@ -152,15 +175,18 @@ class DownloadButton(discord.ui.Button):
                     cell = worksheet.cell(row=row_num, column=col_num)
                     cell.fill = row_fill
                     cell.border = thin_border
+                    # 3. 정렬 수정: 4열(Clan Tag)까지는 왼쪽 정렬, 5열(Global Rank)부터는 중앙 정렬
                     cell.alignment = Alignment(horizontal='left' if col_num <= 4 else 'center')
 
-            column_widths = [20, 15, 15, 15, 12, 18]
+            # 4. 열 너비 최적화 (순서 변경에 맞춰 조정)
+            # Name(20), Tag(15), Clan(15), Clan Tag(15), Global Rank(18), Trophies(12)
+            column_widths = [20, 15, 15, 15, 18, 12]
             for i, width in enumerate(column_widths, 1):
                 worksheet.column_dimensions[worksheet.cell(row=1, column=i).column_letter].width = width
 
         output.seek(0)
         return discord.File(output, filename=f"Clan_Ranking_Report_{datetime.now().strftime('%m%d')}.xlsx")
-
+    
 class RankingView(View):
     def __init__(self, players_data, title, fetch_func):
         super().__init__(timeout=None)
@@ -370,7 +396,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=12, minute=56, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=1, minute=9, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
