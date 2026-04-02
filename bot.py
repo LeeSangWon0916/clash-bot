@@ -96,7 +96,15 @@ class GoogleSheetButton(discord.ui.Button):
             sheet.clear()
             sheet.update('A1', rows)
 
-            await interaction.followup.send("📗 구글 시트에 세계 랭킹 정보를 포함하여 업데이트했습니다!", ephemeral=True)
+            # 출력할 시트 주소
+            sheet_url = "https://docs.google.com/spreadsheets/d/1ZXTm4gkUCoHlpsyk42h58bbGRaicRMwVPaa-90IKAYg"
+
+            # 하이퍼링크 형식으로 깔끔하게 보낼 수 있습니다.
+            await interaction.followup.send(
+                f"📗 구글 스프레드시트 최신화가 완료되었습니다!\n"
+                f"🔗 [실시간 랭킹 확인하기]({sheet_url})", 
+                ephemeral=True
+            )
 
         except Exception as e:
             print(f"Google Sheet Error: {e}")
@@ -396,7 +404,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=1, minute=13, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=1, minute=20, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
