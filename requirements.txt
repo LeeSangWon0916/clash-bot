@@ -3,3 +3,5 @@ discord.py
 requests
 pandas
 openpyxl
+gspread
+oauth2client

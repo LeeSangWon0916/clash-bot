@@ -11,6 +11,8 @@ from dotenv import load_dotenv
 from datetime import datetime, timedelta, timezone
 import pandas as pd
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
 # --- 서버 설정 (Koyeb 유지용) ---
 class Handler(BaseHTTPRequestHandler):
@@ -25,10 +27,48 @@ class Handler(BaseHTTPRequestHandler):
 
 # 1. 구글 시트 버튼 (링크 연결형)
 class GoogleSheetButton(discord.ui.Button):
-    def __init__(self):
-        # 실제 사용하는 구글 스프레드시트 URL을 입력해줘
-        url = "https://docs.google.com/spreadsheets/d/your_sheet_id"
-        super().__init__(label="Google Sheet", style=discord.ButtonStyle.link, url=url)
+    def __init__(self, players_data):
+        super().__init__(label="Update Google Sheet", style=discord.ButtonStyle.success)
+        self.players_data = players_data
+
+    async def callback(self, interaction: discord.Interaction):
+        # 본인에게만 보이도록 응답 시작
+        await interaction.response.defer(ephemeral=True)
+        
+        try:
+            # 1. 구글 API 인증
+            scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+            creds = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', scope)
+            client = gspread.authorize(creds)
+
+            # 2. 시트 열기 (시트 이름 또는 키 입력)
+            doc = client.open_by_key("1ZXTm4gkUCoHlpsyk42h58bbGRaicRMwVPaa-90IKAYg") # URL의 /d/ 뒤에 있는 문자열
+            sheet = doc.get_worksheet(0) # 첫 번째 탭 선택
+
+            # 3. 데이터 준비 (헤더 + 내용)
+            headers = ["Name", "Tag", "Clan", "Clan Tag", "Global Ranking", "Trophies"]
+            rows = [headers]
+            
+            # API 호출 최소화를 위해 플레이어 상세 정보는 엑셀 때와 동일한 방식으로 미리 수집 권장
+            # 여기서는 간단하게 players_data 기반으로 작성
+            for p in self.players_data:
+                rows.append([
+                    p['name'], p['tag'], 
+                    p.get('clan', {}).get('name', 'N/A'),
+                    p.get('clan_tag', 'N/A'),
+                    p.get('global_rank', 'N/A'),
+                    p['trophies']
+                ])
+
+            # 4. 시트 전체 초기화 후 쓰기 (가장 깔끔한 방법)
+            sheet.clear()
+            sheet.update('A1', rows)
+
+            await interaction.followup.send("📗 구글 스프레드시트 업데이트가 완료되었습니다!", ephemeral=True)
+        
+        except Exception as e:
+            print(f"Google Sheet Error: {e}")
+            await interaction.followup.send(f"❌ 시트 업데이트 실패: {e}", ephemeral=True)
 
 # 2. 엑셀 다운로드 버튼 (본인만 볼 수 있게 전송)
 class DownloadButton(discord.ui.Button):
@@ -51,7 +91,7 @@ class DownloadButton(discord.ui.Button):
         )
 
     async def generate_excel(self):
-        headers_list = ["Name", "Tag", "Clan", "Clan Tag", "Trophies", "Global Ranking"]
+        headers_list = ["Name", "Tag", "Clan", "Clan Tag", "Global Ranking", "Trophies"]
         rows = []
         api_headers = {"Authorization": f"Bearer {API_KEY}"}
         proxy_url = os.environ.get("PROXY_URL")
@@ -75,7 +115,7 @@ class DownloadButton(discord.ui.Button):
                     p['name'], p['tag'], 
                     p.get('clan', {}).get('name', 'N/A'),
                     p.get('clan_tag', 'N/A'),
-                    p['trophies'], global_rank
+                    global_rank, p['trophies']
                 ])
                 await asyncio.sleep(0.01)
 
@@ -325,7 +365,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=14, minute=39, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=12, minute=24, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
