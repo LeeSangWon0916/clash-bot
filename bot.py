@@ -205,11 +205,12 @@ class DownloadButton(discord.ui.Button):
         return discord.File(output, filename=f"Clan_Ranking_Report_{datetime.now().strftime('%m%d')}.xlsx")
     
 class RankingView(View):
-    def __init__(self, players_data, title, fetch_func):
+    def __init__(self, players_data, title, fetch_func, all_lines):
         super().__init__(timeout=None)
         self.players_data = players_data
         self.title = title
         self.fetch_func = fetch_func
+        self.all_lines = all_lines # 저장
         self.current_page = 0
         self.chunk_size = 100
         self.update_chunks()
@@ -254,10 +255,12 @@ class RankingView(View):
         self.chunks = [all_lines[i : i + self.chunk_size] for i in range(0, len(all_lines), self.chunk_size)]
 
     def create_embed(self):
+
+        description = "\n".join(self.all_lines)
         chunk = self.chunks[self.current_page]
         embed = discord.Embed(
             title=self.title,
-            description="\n".join(chunk),
+            description=description,
             color=0x1ABC9C,
         )
         # 푸터 날짜 고정 또는 datetime.now().strftime('%Y-%m-%d %H:%M') 사용 가능
@@ -447,7 +450,7 @@ async def send_ranking_with_buttons(channel, players, title, fetch_func):
 
     # 3. 버튼 뷰 생성 및 전송
     # 여기서 enriched_players를 넘겨주면, 내부 버튼들이 이 데이터를 그대로 사용함.
-    view = RankingView(enriched_players, title, fetch_func)
+    view = RankingView(enriched_players, title, fetch_func, all_lines)
     
     # 임베드 생성 시 all_lines를 활용하도록 RankingView가 설계되어 있어야 함
     embed = view.create_embed() # RankingView 내부에서 all_lines를 기반으로 빌드하도록 수정 필요
@@ -460,7 +463,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=12, minute=40, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=12, minute=54, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
