@@ -100,16 +100,41 @@ class GoogleSheetButton(discord.ui.Button):
             # 출력할 시트 주소
             sheet_url = "https://docs.google.com/spreadsheets/d/1ZXTm4gkUCoHlpsyk42h58bbGRaicRMwVPaa-90IKAYg"
 
-            # 하이퍼링크 형식으로 깔끔하게 보낼 수 있습니다.
+            # ---------------------------------------------------------
+            # 🎨 구글 시트 디자인 적용 (엑셀 스타일 동기화)
+            # ---------------------------------------------------------
+            last_row = len(rows)
+            # 전체 범위 (A1부터 F열 마지막 행까지)
+            full_range = f"A1:F{last_row}"
+
+            # A. 헤더 스타일 (남색 배경 #366092, 흰색 굵은 글씨, 중앙 정렬)
+            sheet.format("A1:F1", {
+                "backgroundColor": {"red": 54/255, "green": 96/255, "blue": 146/255},
+                "textFormat": {"foregroundColor": {"red": 1.0, "green": 1.0, "blue": 1.0}, "bold": True},
+                "horizontalAlignment": "CENTER"
+            })
+
+            # B. 본문 줄무늬 효과 (짝수 데이터 행에 연한 회색 #F2F2F2 적용)
+            # 시트 기준으로는 3행, 5행, 7행... (데이터의 2번째, 4번째... 행)
+            for i in range(3, last_row + 1, 2):
+                sheet.format(f"A{i}:F{i}", {
+                    "backgroundColor": {"red": 242/255, "green": 242/255, "blue": 242/255}
+                })
+
+            # C. 정렬 설정
+            # 이름/태그/클랜(A~D열)은 왼쪽 정렬
+            sheet.format(f"A2:D{last_row}", {"horizontalAlignment": "LEFT"})
+            # 글로벌랭킹/트로피(E~F열)는 중앙 정렬
+            sheet.format(f"E2:F{last_row}", {"horizontalAlignment": "CENTER"})
+
             await interaction.followup.send(
-                f"📗 구글 스프레드시트 최신화가 완료되었습니다!\n"
-                f"🔗 [실시간 랭킹 확인하기]({sheet_url})", 
+                f"📗 구글 스프레드시트 디자인 적용 및 최신화 완료!\n🔗 [실시간 랭킹 확인하기]({sheet_url})", 
                 ephemeral=True
             )
 
         except Exception as e:
             print(f"Google Sheet Error: {e}")
-            await interaction.followup.send(f"❌ 시트 업데이트 중 오류 발생: {e}", ephemeral=True)
+            await interaction.followup.send(f"❌ 오류 발생: {e}", ephemeral=True)
 
 
 # 2. 엑셀 다운로드 버튼 (본인만 볼 수 있게 전송)
@@ -421,7 +446,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=13, minute=13, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=13, minute=25, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
