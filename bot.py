@@ -261,6 +261,18 @@ class RankingView(View):
                     line = f"{rank_val}. [**{display_text} (백의)**](https://clashofclans.com)"
                 elif "적의" in clan_name:
                     line = f"{rank_val}. [**{display_text} (적의)**](https://clashofclans.com)"
+                elif ("신의" in clan_name):
+                    # 적의도 rank_val을 넣어주는 게 줄 맞춤에 좋을 거야!
+                    line = f"{rank_val}. [**{display_text} (적의)**](https://clashofclans.com)"
+                elif ("KoreaClan" in clan_name):
+                    # 적의도 rank_val을 넣어주는 게 줄 맞춤에 좋을 거야!
+                    line = f"{rank_val}. [**{display_text} (적의)**](https://clashofclans.com)"
+                elif ("Onda2" in clan_name):
+                    # 적의도 rank_val을 넣어주는 게 줄 맞춤에 좋을 거야!
+                    line = f"{rank_val}. [**{display_text} (적의)**](https://clashofclans.com)"
+                elif ("On다" in clan_name):
+                    # 적의도 rank_val을 넣어주는 게 줄 맞춤에 좋을 거야!
+                    line = f"{rank_val}. [**{display_text} (적의)**](https://clashofclans.com)"
                 else:
                     line = f"{rank_val}. {player_name} ({trophy_val})"
             else:
@@ -446,7 +458,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=13, minute=25, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=13, minute=33, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
