@@ -286,7 +286,6 @@ class RankingView(View):
         self.chunks = [all_lines[i : i + self.chunk_size] for i in range(0, len(all_lines), self.chunk_size)]
 
     def create_embed(self):
-        chunk = self.chunks[self.current_page]
         embed = discord.Embed(
             title=self.title,
             description="\n".join(self.chunks[self.current_page]),
@@ -410,11 +409,9 @@ def get_clan_members(clan_tag):
 
 # 국내 랭킹 명령어를 처리하는 함수
 async def send_ranking_with_buttons(channel, players, title, fetch_func):
-    chunk_size = 100
-    all_lines = []
     
     # 1. 일단 모든 플레이어 줄을 생성
-    for idx, p in enumerate(players, 1):
+    '''for idx, p in enumerate(players, 1):
         player_name = p['name']
         
         # API에 rank가 있으면 쓰고, 없으면 idx(1, 2, 3...)를 사용해
@@ -446,7 +443,7 @@ async def send_ranking_with_buttons(channel, players, title, fetch_func):
         else:
             line = f"{rank_val}. {player_name} ({trophy_val})"
             
-        all_lines.append(line)
+        all_lines.append(line)'''
     
     # 3. 버튼 뷰 생성 및 전송
     view = RankingView(players, title, fetch_func)
@@ -458,7 +455,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=13, minute=33, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=14, minute=0, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
