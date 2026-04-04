@@ -34,8 +34,13 @@ class GoogleSheetButton(discord.ui.Button):
         self.players_data = players_data
 
     async def callback(self, interaction: discord.Interaction):
-        # 1. 본인에게만 보이는 진행 상태 메시지
-        await interaction.response.defer(ephemeral=True)
+
+        try:
+            await interaction.response.defer(ephemeral=True)
+        except discord.errors.NotFound:
+            # 이미 만료된 상호작용이라면 무시하거나 로그만 남김
+            print("상호작용이 만료되어 defer를 할 수 없습니다.")
+            return
         
         try:
             # 환경 변수 및 인증 로직
@@ -75,7 +80,7 @@ class GoogleSheetButton(discord.ui.Button):
                                 data = await res.json()
                                 # 전설 리그 랭킹 정보 추출
                                 legend_stats = data.get("legendStatistics", {})
-                                global_rank = legend_stats.get("currentSeason", {}).get("rank", "N/A")
+                                global_rank = legend_stats.get("currentSeason", {}).get("rank", "0")
                             else:
                                 print(f"❌ {p['name']} API 호출 실패: {res.status}")
                     except Exception as e:
@@ -101,40 +106,26 @@ class GoogleSheetButton(discord.ui.Button):
             sheet_url = "https://docs.google.com/spreadsheets/d/1ZXTm4gkUCoHlpsyk42h58bbGRaicRMwVPaa-90IKAYg"
 
             # ---------------------------------------------------------
-            # 🎨 구글 시트 디자인 적용 (엑셀 스타일 동기화)
+            # 🔄 디자인 유지형 데이터 업데이트
             # ---------------------------------------------------------
-            last_row = len(rows)
-            # 전체 범위 (A1부터 F열 마지막 행까지)
-            full_range = f"A1:F{last_row}"
+            
+            # 1. 기존 데이터 "값"만 지우기 (디자인은 보존됨)
+            # A1부터 F열의 아주 먼 곳(예: 500행)까지 값만 삭제
+            sheet.batch_clear(["A1:F500"]) 
 
-            # A. 헤더 스타일 (남색 배경 #366092, 흰색 굵은 글씨, 중앙 정렬)
-            sheet.format("A1:F1", {
-                "backgroundColor": {"red": 54/255, "green": 96/255, "blue": 146/255},
-                "textFormat": {"foregroundColor": {"red": 1.0, "green": 1.0, "blue": 1.0}, "bold": True},
-                "horizontalAlignment": "CENTER"
-            })
-
-            # B. 본문 줄무늬 효과 (짝수 데이터 행에 연한 회색 #F2F2F2 적용)
-            # 시트 기준으로는 3행, 5행, 7행... (데이터의 2번째, 4번째... 행)
-            for i in range(3, last_row + 1, 2):
-                sheet.format(f"A{i}:F{i}", {
-                    "backgroundColor": {"red": 242/255, "green": 242/255, "blue": 242/255}
-                })
-
-            # C. 정렬 설정
-            # 이름/태그/클랜(A~D열)은 왼쪽 정렬
-            sheet.format(f"A2:D{last_row}", {"horizontalAlignment": "LEFT"})
-            # 글로벌랭킹/트로피(E~F열)는 중앙 정렬
-            sheet.format(f"E2:F{last_row}", {"horizontalAlignment": "CENTER"})
+            # 2. 새 데이터 넣기
+            # 'RAW' 모드로 넣어야 수식이나 서식이 깨지지 않고 값만 들어감
+            sheet.update('A1', rows, value_input_option='RAW')
 
             await interaction.followup.send(
-                f"📗 구글 스프레드시트 디자인 적용 및 최신화 완료!\n🔗 [실시간 랭킹 확인하기]({sheet_url})", 
+                f"📗 데이터 갱신이 완료되었습니다! (서식 유지)\n🔗 [실시간 랭킹 확인하기]({sheet_url})", 
                 ephemeral=True
             )
 
         except Exception as e:
-            print(f"Google Sheet Error: {e}")
-            await interaction.followup.send(f"❌ 오류 발생: {e}", ephemeral=True)
+            # ❗ 가장 바깥쪽 예외 처리: 인증 실패, 시트 접근 불가 등 대비
+            print(f"❌ Google Sheet Error: {e}")
+            await interaction.followup.send(f"❌ 시트 업데이트 중 오류 발생: {e}", ephemeral=True)
 
 
 # 2. 엑셀 다운로드 버튼 (본인만 볼 수 있게 전송)
@@ -263,16 +254,19 @@ class RankingView(View):
                     line = f"{rank_val}. [**{display_text} (적의)**](https://clashofclans.com)"
                 elif ("신의" in clan_name):
                     # 적의도 rank_val을 넣어주는 게 줄 맞춤에 좋을 거야!
-                    line = f"{rank_val}. [**{display_text} (적의)**](https://clashofclans.com)"
+                    line = f"{rank_val}. [**{display_text} (신의)**](https://clashofclans.com)"
                 elif ("KoreaClan" in clan_name):
                     # 적의도 rank_val을 넣어주는 게 줄 맞춤에 좋을 거야!
-                    line = f"{rank_val}. [**{display_text} (적의)**](https://clashofclans.com)"
+                    line = f"{rank_val}. [**{display_text} (KoreaClan)**](https://clashofclans.com)"
                 elif ("Onda2" in clan_name):
                     # 적의도 rank_val을 넣어주는 게 줄 맞춤에 좋을 거야!
-                    line = f"{rank_val}. [**{display_text} (적의)**](https://clashofclans.com)"
+                    line = f"{rank_val}. [**{display_text} (Onda2)**](https://clashofclans.com)"
                 elif ("On다" in clan_name):
                     # 적의도 rank_val을 넣어주는 게 줄 맞춤에 좋을 거야!
-                    line = f"{rank_val}. [**{display_text} (적의)**](https://clashofclans.com)"
+                    line = f"{rank_val}. [**{display_text} (On다)**](https://clashofclans.com)"
+                elif ("백의CWL" in clan_name):
+                    # 적의도 rank_val을 넣어주는 게 줄 맞춤에 좋을 거야!
+                    line = f"{rank_val}. [**{display_text} (백의CWL)**](https://clashofclans.com)"
                 else:
                     line = f"{rank_val}. {player_name} ({trophy_val})"
             else:
@@ -410,41 +404,6 @@ def get_clan_members(clan_tag):
 # 국내 랭킹 명령어를 처리하는 함수
 async def send_ranking_with_buttons(channel, players, title, fetch_func):
     
-    # 1. 일단 모든 플레이어 줄을 생성
-    '''for idx, p in enumerate(players, 1):
-        player_name = p['name']
-        
-        # API에 rank가 있으면 쓰고, 없으면 idx(1, 2, 3...)를 사용해
-        rank_val = p.get('rank', idx) 
-        
-        trophy_val = p['trophies']
-        clan_info = p.get("clan")
-        clan_name = clan_info.get("name", "") if clan_info else ""
-        
-        display_text = f"{player_name} ({trophy_val})"
-            
-        if ("백의" in clan_name):
-            line = f"{rank_val}. [**{display_text} (백의)**](https://clashofclans.com)"
-        elif ("적의" in clan_name):
-            # 적의도 rank_val을 넣어주는 게 줄 맞춤에 좋을 거야!
-            line = f"{rank_val}. [**{display_text} (적의)**](https://clashofclans.com)"
-        elif ("신의" in clan_name):
-            # 적의도 rank_val을 넣어주는 게 줄 맞춤에 좋을 거야!
-            line = f"{rank_val}. [**{display_text} (적의)**](https://clashofclans.com)"
-        elif ("KoreaClan" in clan_name):
-            # 적의도 rank_val을 넣어주는 게 줄 맞춤에 좋을 거야!
-            line = f"{rank_val}. [**{display_text} (적의)**](https://clashofclans.com)"
-        elif ("Onda2" in clan_name):
-            # 적의도 rank_val을 넣어주는 게 줄 맞춤에 좋을 거야!
-            line = f"{rank_val}. [**{display_text} (적의)**](https://clashofclans.com)"
-        elif ("On다" in clan_name):
-            # 적의도 rank_val을 넣어주는 게 줄 맞춤에 좋을 거야!
-            line = f"{rank_val}. [**{display_text} (적의)**](https://clashofclans.com)"
-        else:
-            line = f"{rank_val}. {player_name} ({trophy_val})"
-            
-        all_lines.append(line)'''
-    
     # 3. 버튼 뷰 생성 및 전송
     view = RankingView(players, title, fetch_func)
     await channel.send(embed=view.create_embed(), view=view)
@@ -455,7 +414,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=14, minute=0, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=13, minute=27, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
@@ -480,7 +439,8 @@ async def daily_task(channel_a, channel_b):
             {"name": "백의종군", "tag": os.environ.get("CLAN_TAG_BJ")},
             {"name": "Onda2", "tag": os.environ.get("CLAN_TAG_ONDA2")},
             {"name": "On다", "tag": os.environ.get("CLAN_TAG_ONDA")},
-            {"name": "KoreaClan", "tag": os.environ.get("CLAN_TAG_KOREA")}
+            {"name": "KoreaClan", "tag": os.environ.get("CLAN_TAG_KOREA")},
+            {"name": "백의CWL", "tag": os.environ.get("CLAN_TAG_KOREA")}
         ]
 
         all_combined_members = []
