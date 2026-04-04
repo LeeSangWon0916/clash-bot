@@ -42,6 +42,11 @@ class GoogleSheetButton(discord.ui.Button):
             print("상호작용이 만료되어 defer를 할 수 없습니다.")
             return
         
+        status_msg = await interaction.followup.send(
+            "⏳ 구글 스프레드시트를 생성 중입니다. 잠시만 기다려 주세요...", 
+            ephemeral=True
+        )
+        
         try:
             # 환경 변수 및 인증 로직
             creds_json_str = os.environ.get("CREDENTIALS_JSON")
@@ -117,9 +122,8 @@ class GoogleSheetButton(discord.ui.Button):
             # 'RAW' 모드로 넣어야 수식이나 서식이 깨지지 않고 값만 들어감
             sheet.update('A1', rows, value_input_option='RAW')
 
-            await interaction.followup.send(
-                f"📗 데이터 갱신이 완료되었습니다! (서식 유지)\n🔗 [실시간 랭킹 확인하기]({sheet_url})", 
-                ephemeral=True
+            await status_msg.edit(
+                content=f"📗 구글 스프레드시트 최신화가 완료되었습니다!\n🔗 [실시간 랭킹 확인하기]({sheet_url})"
             )
 
         except Exception as e:
@@ -414,7 +418,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=13, minute=27, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=13, minute=38, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
