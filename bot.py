@@ -67,45 +67,16 @@ class GoogleSheetButton(discord.ui.Button):
             headers = ["Name", "Tag", "Clan", "Clan Tag", "Global Ranking", "Trophies"]
             rows = [headers]
 
-            # API 호출을 위한 설정
-            api_headers = {"Authorization": f"Bearer {API_KEY}"}
-            proxy_url = os.environ.get("PROXY_URL")
-
-            # 3. 데이터 수집 (상세 정보 API 호출 포함)
-            async with aiohttp.ClientSession() as session:
-                for p in self.players_data:
-                    player_tag = p['tag']
-                    safe_p_tag = player_tag.replace("#", "%23")
-                    player_url = f"https://api.clashofclans.com/v1/players/{safe_p_tag}"
-                    
-                    global_rank = "N/A"
-                    try:
-                        async with session.get(player_url, headers=api_headers, proxy=proxy_url, timeout=10) as res:
-                            if res.status == 200:
-                                data = await res.json()
-                                # 전설 리그 랭킹 정보 추출
-                                legend_stats = data.get("legendStatistics", {})
-                                global_rank = legend_stats.get("currentSeason", {}).get("rank", "0")
-                            else:
-                                print(f"❌ {p['name']} API 호출 실패: {res.status}")
-                    except Exception as e:
-                        print(f"⚠️ API 에러 ({p['name']}): {e}")
-
-                    # 4. 행 추가 (순서 주의: global_rank가 먼저)
-                    rows.append([
-                        p['name'], 
-                        p['tag'], 
-                        p.get('clan', {}).get('name', 'N/A'),
-                        p.get('clan_tag', 'N/A'),
-                        global_rank, 
-                        p['trophies']
-                    ])
-                    # API 과부하 방지를 위한 미세한 대기
-                    await asyncio.sleep(0.01)
-
-            # 5. 시트 업데이트
-            sheet.clear()
-            sheet.update('A1', rows)
+            # 💡 [대체] 이미 players_data에 담겨있는 값을 꺼내 쓰기만 함
+            for p in self.players_data:
+                rows.append([
+                    p['name'], 
+                    p['tag'], 
+                    p.get('clan', {}).get('name', 'N/A'),
+                    p.get('clan_tag', 'N/A'),
+                    p.get('global_rank', '0'), # 미리 수집된 값 사용
+                    p['trophies']
+                ])
 
             # 출력할 시트 주소
             sheet_url = "https://docs.google.com/spreadsheets/d/1ZXTm4gkUCoHlpsyk42h58bbGRaicRMwVPaa-90IKAYg"
@@ -407,6 +378,24 @@ def get_clan_members(clan_tag):
 
 # 국내 랭킹 명령어를 처리하는 함수
 async def send_ranking_with_buttons(channel, players, title, fetch_func):
+
+    # 1. 채널 B(연합 랭킹)일 때만 미리 상세 데이터(Global Rank) 수집
+    if "Korea Ranking" not in title:
+        api_headers = {"Authorization": f"Bearer {API_KEY}"}
+        proxy_url = os.environ.get("PROXY_URL")
+        
+        async with aiohttp.ClientSession() as session:
+            for p in players:
+                safe_tag = p['tag'].replace("#", "%23")
+                try:
+                    async with session.get(f"https://api.clashofclans.com/v1/players/{safe_tag}", 
+                                           headers=api_headers, proxy=proxy_url, timeout=5) as res:
+                        if res.status == 200:
+                            data = await res.json()
+                            p['global_rank'] = data.get("legendStatistics", {}).get("currentSeason", {}).get("rank", "0")
+                except:
+                    p['global_rank'] = "N/A"
+                await asyncio.sleep(0.01)
     
     # 3. 버튼 뷰 생성 및 전송
     view = RankingView(players, title, fetch_func)
@@ -418,7 +407,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=13, minute=38, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=13, minute=57, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
@@ -461,8 +450,6 @@ async def daily_task(channel_a, channel_b):
                         m['clan'] = {'name': info["name"]}
                         m['clan_tag'] = tag
                         all_combined_members.append(m)
-
-        print(f"📊 총합 멤버 수: {len(all_combined_members)}명")
 
         if all_combined_members:
             # 1. 전체 인원을 트로피 순으로 정렬
@@ -507,30 +494,5 @@ async def on_ready():
         print("❌ 권한 오류: 봇이 채널 중 하나에 접근할 권한이 없습니다.")
     except Exception as e:
         print(f"❌ 오류 발생: {e}")
-
-'''@client.event
-async def on_message(message):
-    # 봇 자신이 쓴 메시지에는 반응하지 않게 방어
-    if message.author == client.user:
-        return
-
-    # 채팅창에 !test 라고 치면 실행
-    if message.content == "!test":
-        print(f"[{message.author}]님이 테스트 명령어를 사용함")
-        
-        # 전체 로컬 랭킹 상위 10명만 테스트로 출력해보기
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
-        players = get_clan_members(CLAN_TAG)
-        print(f"가져온 플레이어 수: {len(players) if players else 0}") # 확인용 2
-        if players:
-            # message.channel은 명령어를 친 바로 그 채널을 의미해
-            await send_ranking_with_buttons(
-                message.channel, 
-                players[:], 
-                f"클랜 랭킹 디자인 테스트 ({now_str})",
-                fetch_func=lambda: get_clan_members(CLAN_TAG)
-            )
-        
-        await message.channel.send("✅ 테스트 출력이 완료되었습니다!")'''
 
 client.run(TOKEN)
