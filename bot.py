@@ -208,7 +208,7 @@ class RankingView(View):
         # 채널 B(연합 랭킹)일 때만 구글 시트와 다운로드 버튼 추가
         if "Korea Ranking" not in self.title:
             self.add_item(GoogleSheetButton(self.players_data))
-            self.add_item(DownloadButton(self.players_data))
+            # self.add_item(DownloadButton(self.players_data))
 
     def update_chunks(self):
         all_lines = []
@@ -407,7 +407,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=13, minute=57, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=14, minute=1, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
