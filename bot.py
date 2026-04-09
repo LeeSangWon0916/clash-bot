@@ -416,7 +416,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=13, minute=40, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=13, minute=36, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
