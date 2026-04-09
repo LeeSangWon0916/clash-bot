@@ -193,7 +193,16 @@ class DownloadButton(discord.ui.Button):
 class RankingView(View):
     def __init__(self, players_data, title, fetch_func):
         super().__init__(timeout=None)
-        self.players_data = players_data
+
+        # 💡 중복 제거 로직: 태그를 기준으로 가장 먼저 발견된 데이터만 유지
+        seen = set()
+        unique_players = []
+        for p in players_data:
+            if p['tag'] not in seen:
+                unique_players.append(p)
+                seen.add(p['tag'])
+
+        self.players_data = unique_players #players_data
         self.title = title
         self.fetch_func = fetch_func
         self.current_page = 0
@@ -407,7 +416,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=14, minute=1, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=13, minute=40, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
