@@ -155,13 +155,13 @@ class RankingView(View):
                 
                 if matched_clan:
                     line = f"{rank_val}. [**{display_text} ({matched_clan})**](https://clashofclans.com)"
+                else:
+                    line = f"{rank_val}. {player_name} ({trophy_val})"
             else:
-                line = f"{rank_val}. {player_name} ({trophy_val})"
-        else:
-            # 3. 채널 B 스타일 (f-string 정렬 활용)
-            rank_str = f"{rank_val:>2}"
-            trophy_str = f"{trophy_val:>4}"
-            line = f"[`{rank_str}`](https://clashofclans.com) `{trophy_str}` {player_name} | {clan_name}"
+                # 3. 채널 B 스타일 (f-string 정렬 활용)
+                rank_str = f"{rank_val:>2}"
+                trophy_str = f"{trophy_val:>4}"
+                line = f"[`{rank_str}`](https://clashofclans.com) `{trophy_str}` {player_name} | {clan_name}"
 
         all_lines.append(line)
             
@@ -290,7 +290,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=13, minute=42, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=13, minute=47, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
