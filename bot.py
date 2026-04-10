@@ -63,6 +63,10 @@ class GoogleSheetButton(discord.ui.Button):
             doc = client.open_by_url(sheet_url)
             sheet = doc.get_worksheet(0)
 
+            today_date = datetime.now().strftime("%Y-%m-%d")
+            doc.update_title(f"{today_date} Clan Ranking")
+            sheet.update_title(f"{today_date} Ranking")
+
             # 2. 헤더 설정 (순서 변경: Ranking -> Trophies)
             headers = ["Name", "Tag", "Clan", "Clan Tag", "Global Ranking", "Trophies"]
             rows = [headers]
@@ -102,93 +106,6 @@ class GoogleSheetButton(discord.ui.Button):
             print(f"❌ Google Sheet Error: {e}")
             await interaction.followup.send(f"❌ 시트 업데이트 중 오류 발생: {e}", ephemeral=True)
 
-
-# 2. 엑셀 다운로드 버튼 (본인만 볼 수 있게 전송)
-class DownloadButton(discord.ui.Button):
-    def __init__(self, players_data):
-        super().__init__(label="Download", style=discord.ButtonStyle.secondary)
-        self.players_data = players_data
-
-    async def callback(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-        excel_file = await self.generate_excel() 
-        await interaction.followup.send(
-            "✨ 엑셀 리포트 생성이 완료되었습니다.", 
-            file=excel_file, 
-            ephemeral=True
-        )
-
-    async def generate_excel(self):
-        # 1. 헤더 순서 변경 (Global Ranking을 Trophies 앞으로)
-        headers_list = ["Name", "Tag", "Clan", "Clan Tag", "Global Ranking", "Trophies"]
-        rows = []
-        api_headers = {"Authorization": f"Bearer {API_KEY}"}
-        proxy_url = os.environ.get("PROXY_URL")
-
-        async with aiohttp.ClientSession() as session:
-            for p in self.players_data:
-                player_tag = p['tag']
-                safe_p_tag = player_tag.replace("#", "%23")
-                player_url = f"https://api.clashofclans.com/v1/players/{safe_p_tag}"
-                
-                global_rank = "N/A"
-                try:
-                    async with session.get(player_url, headers=api_headers, proxy=proxy_url, timeout=10) as res:
-                        if res.status == 200:
-                            data = await res.json()
-                            legend_stats = data.get("legendStatistics", {})
-                            global_rank = legend_stats.get("currentSeason", {}).get("rank", "N/A")
-                except: pass
-
-                # 2. 데이터 행 추가 순서 변경 (global_rank를 trophies 앞으로)
-                rows.append([
-                    p['name'], p['tag'], 
-                    p.get('clan', {}).get('name', 'N/A'),
-                    p.get('clan_tag', 'N/A'),
-                    global_rank, p['trophies']
-                ])
-                await asyncio.sleep(0.01)
-
-        df = pd.DataFrame(rows, columns=headers_list)
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='Ranking')
-            workbook = writer.book
-            worksheet = writer.sheets['Ranking']
-
-            header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
-            header_font = Font(color="FFFFFF", bold=True, size=12)
-            odd_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
-            even_fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
-            thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), 
-                                top=Side(style='thin'), bottom=Side(style='thin'))
-
-            for col_num, value in enumerate(df.columns, 1):
-                cell = worksheet.cell(row=1, column=col_num)
-                cell.fill = header_fill
-                cell.font = header_font
-                cell.alignment = Alignment(horizontal='center')
-                cell.border = thin_border
-
-            for row_num in range(2, len(rows) + 2):
-                row_fill = even_fill if row_num % 2 == 1 else odd_fill
-                for col_num in range(1, len(headers_list) + 1):
-                    cell = worksheet.cell(row=row_num, column=col_num)
-                    cell.fill = row_fill
-                    cell.border = thin_border
-                    # 3. 정렬 수정: 4열(Clan Tag)까지는 왼쪽 정렬, 5열(Global Rank)부터는 중앙 정렬
-                    cell.alignment = Alignment(horizontal='left' if col_num <= 4 else 'center')
-
-            # 4. 열 너비 최적화 (순서 변경에 맞춰 조정)
-            # Name(20), Tag(15), Clan(15), Clan Tag(15), Global Rank(18), Trophies(12)
-            column_widths = [20, 15, 15, 15, 18, 12]
-            for i, width in enumerate(column_widths, 1):
-                worksheet.column_dimensions[worksheet.cell(row=1, column=i).column_letter].width = width
-
-        output.seek(0)
-        return discord.File(output, filename=f"Clan_Ranking_Report_{datetime.now().strftime('%m%d')}.xlsx")
-
-
     
 class RankingView(View):
     def __init__(self, players_data, title, fetch_func):
@@ -217,11 +134,11 @@ class RankingView(View):
         # 채널 B(연합 랭킹)일 때만 구글 시트와 다운로드 버튼 추가
         if "Korea Ranking" not in self.title:
             self.add_item(GoogleSheetButton(self.players_data))
-            # self.add_item(DownloadButton(self.players_data))
 
     def update_chunks(self):
         all_lines = []
         is_korea_ranking = "Korea Ranking" in self.title
+        target_clans = ["백의", "적의", "신의", "KoreaClan", "Onda2", "On다", "백의CWL"]
 
         for idx, p in enumerate(self.players_data, 1):
             player_name = p['name']
@@ -232,35 +149,22 @@ class RankingView(View):
             
             if is_korea_ranking:
                 display_text = f"{player_name} ({trophy_val})"
-                if "백의" in clan_name:
-                    line = f"{rank_val}. [**{display_text} (백의)**](https://clashofclans.com)"
-                elif "적의" in clan_name:
-                    line = f"{rank_val}. [**{display_text} (적의)**](https://clashofclans.com)"
-                elif ("신의" in clan_name):
-                    # 적의도 rank_val을 넣어주는 게 줄 맞춤에 좋을 거야!
-                    line = f"{rank_val}. [**{display_text} (신의)**](https://clashofclans.com)"
-                elif ("KoreaClan" in clan_name):
-                    # 적의도 rank_val을 넣어주는 게 줄 맞춤에 좋을 거야!
-                    line = f"{rank_val}. [**{display_text} (KoreaClan)**](https://clashofclans.com)"
-                elif ("Onda2" in clan_name):
-                    # 적의도 rank_val을 넣어주는 게 줄 맞춤에 좋을 거야!
-                    line = f"{rank_val}. [**{display_text} (Onda2)**](https://clashofclans.com)"
-                elif ("On다" in clan_name):
-                    # 적의도 rank_val을 넣어주는 게 줄 맞춤에 좋을 거야!
-                    line = f"{rank_val}. [**{display_text} (On다)**](https://clashofclans.com)"
-                elif ("백의CWL" in clan_name):
-                    # 적의도 rank_val을 넣어주는 게 줄 맞춤에 좋을 거야!
-                    line = f"{rank_val}. [**{display_text} (백의CWL)**](https://clashofclans.com)"
-                else:
-                    line = f"{rank_val}. {player_name} ({trophy_val})"
+                
+                # 2. 클랜 키워드가 있는지 확인 후 있으면 강조 서식 적용
+                matched_clan = next((c for c in target_clans if c in clan_name), None)
+                
+                if matched_clan:
+                    line = f"{rank_val}. [**{display_text} ({matched_clan})**](https://clashofclans.com)"
             else:
-                rank_str = f"{rank_val:>2}"
-                trophy_str = f"{trophy_val:>4}"
-                # 정렬된 파란색 랭킹 링크 스타일
-                line = f"[`{rank_str}`](https://clashofclans.com) `{trophy_str}` {player_name} | {clan_name}"
+                line = f"{rank_val}. {player_name} ({trophy_val})"
+        else:
+            # 3. 채널 B 스타일 (f-string 정렬 활용)
+            rank_str = f"{rank_val:>2}"
+            trophy_str = f"{trophy_val:>4}"
+            line = f"[`{rank_str}`](https://clashofclans.com) `{trophy_str}` {player_name} | {clan_name}"
 
-            all_lines.append(line)
-        
+        all_lines.append(line)
+            
         self.chunks = [all_lines[i : i + self.chunk_size] for i in range(0, len(all_lines), self.chunk_size)]
 
     def create_embed(self):
@@ -282,36 +186,6 @@ class RankingView(View):
     async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.current_page = (self.current_page + 1) % len(self.chunks)
         await interaction.response.edit_message(embed=self.create_embed(), view=self)
-    # 🔄 새로고침 버튼 추가 (초록색)
-    '''@discord.ui.button(label="🔄", style=discord.ButtonStyle.secondary)
-    async def refresh_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        try:
-            # 1. 상호작용 지연 처리 (3초 타임아웃 방지)
-            # 'defer_update'가 아니라 'defer'야!
-            await interaction.response.defer()
-            
-            # 2. 데이터 새로 가져오기
-            # 만약 fetch_func가 일반 함수(def)라면 아래처럼 실행
-            # 만약 비동기 함수(async def)라면 그냥 await self.fetch_func()
-            if asyncio.iscoroutinefunction(self.fetch_func):
-                new_players = await self.fetch_func()
-            else:
-                loop = asyncio.get_event_loop()
-                new_players = await loop.run_in_executor(None, self.fetch_func)
-            
-            if new_players:
-                self.players_data = new_players
-                self.update_chunks() # 데이터 다시 쪼개기
-                
-                # 3. 메시지 업데이트
-                await interaction.edit_original_response(embed=self.create_embed(), view=self)
-            else:
-                await interaction.followup.send("데이터를 가져오는 데 실패했습니다.", ephemeral=True)
-                
-        except Exception as e:
-            print(f"새로고침 중 에러 발생: {e}")
-            # 에러 발생 시 사용자에게 알림
-            await interaction.followup.send("새로고침 중 문제가 발생했습니다.", ephemeral=True)'''
 
 def run_server():
     server = HTTPServer(('0.0.0.0', 8000), Handler)
@@ -416,7 +290,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=14, minute=0, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=13, minute=42, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
