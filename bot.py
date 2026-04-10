@@ -162,12 +162,12 @@ class RankingView(View):
                     line = f"{rank_val}. [**{display_text} (On다)**](https://clashofclans.com)"
                 elif ("백의CWL" in clan_name):
                     line = f"{rank_val}. [**{display_text} (백의CWL)**](https://clashofclans.com)"
+                else:
+                    line = f"{rank_val}. {player_name} ({trophy_val})"
             else:
-                line = f"{rank_val}. {player_name} ({trophy_val})"
-        else:
-            rank_str = f"{rank_val:>2}"
-            trophy_str = f"{trophy_val:>4}"
-            line = f"[`{rank_str}`](https://clashofclans.com) `{trophy_str}` {player_name} | {clan_name}"
+                rank_str = f"{rank_val:>2}"
+                trophy_str = f"{trophy_val:>4}"
+                line = f"[`{rank_str}`](https://clashofclans.com) `{trophy_str}` {player_name} | {clan_name}"
 
             all_lines.append(line)
             
@@ -296,7 +296,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=13, minute=54, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=13, minute=56, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
