@@ -138,7 +138,6 @@ class RankingView(View):
     def update_chunks(self):
         all_lines = []
         is_korea_ranking = "Korea Ranking" in self.title
-        target_clans = ["백의", "적의", "신의", "KoreaClan", "Onda2", "On다", "백의CWL"]
 
         for idx, p in enumerate(self.players_data, 1):
             player_name = p['name']
@@ -149,21 +148,28 @@ class RankingView(View):
             
             if is_korea_ranking:
                 display_text = f"{player_name} ({trophy_val})"
-                
-                # 2. 클랜 키워드가 있는지 확인 후 있으면 강조 서식 적용
-                matched_clan = next((c for c in target_clans if c in clan_name), None)
-                
-                if matched_clan:
-                    line = f"{rank_val}. [**{display_text} ({matched_clan})**](https://clashofclans.com)"
-                else:
-                    line = f"{rank_val}. {player_name} ({trophy_val})"
+                if "백의" in clan_name:
+                    line = f"{rank_val}. [**{display_text} (백의)**](https://clashofclans.com)"
+                elif "적의" in clan_name:
+                    line = f"{rank_val}. [**{display_text} (적의)**](https://clashofclans.com)"
+                elif ("신의" in clan_name):
+                    line = f"{rank_val}. [**{display_text} (신의)**](https://clashofclans.com)"
+                elif ("KoreaClan" in clan_name):
+                    line = f"{rank_val}. [**{display_text} (KoreaClan)**](https://clashofclans.com)"
+                elif ("Onda2" in clan_name):
+                    line = f"{rank_val}. [**{display_text} (Onda2)**](https://clashofclans.com)"
+                elif ("On다" in clan_name):
+                    line = f"{rank_val}. [**{display_text} (On다)**](https://clashofclans.com)"
+                elif ("백의CWL" in clan_name):
+                    line = f"{rank_val}. [**{display_text} (백의CWL)**](https://clashofclans.com)"
             else:
-                # 3. 채널 B 스타일 (f-string 정렬 활용)
-                rank_str = f"{rank_val:>2}"
-                trophy_str = f"{trophy_val:>4}"
-                line = f"[`{rank_str}`](https://clashofclans.com) `{trophy_str}` {player_name} | {clan_name}"
+                line = f"{rank_val}. {player_name} ({trophy_val})"
+        else:
+            rank_str = f"{rank_val:>2}"
+            trophy_str = f"{trophy_val:>4}"
+            line = f"[`{rank_str}`](https://clashofclans.com) `{trophy_str}` {player_name} | {clan_name}"
 
-        all_lines.append(line)
+            all_lines.append(line)
             
         self.chunks = [all_lines[i : i + self.chunk_size] for i in range(0, len(all_lines), self.chunk_size)]
 
@@ -290,7 +296,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=13, minute=47, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=13, minute=54, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
