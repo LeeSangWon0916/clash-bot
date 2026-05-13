@@ -174,6 +174,11 @@ class RankingView(View):
         self.chunks = [all_lines[i : i + self.chunk_size] for i in range(0, len(all_lines), self.chunk_size)]
 
     def create_embed(self):
+
+        # 2. 안전하게 4000자에서 커트 (디스코드 제한은 4096자)
+        if len(description) > 4000:
+            description = description[:3997] + "..."
+
         embed = discord.Embed(
             title=self.title,
             description="\n".join(self.chunks[self.current_page]),
@@ -296,7 +301,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=14, minute=7, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=14, minute=28, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
