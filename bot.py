@@ -175,13 +175,15 @@ class RankingView(View):
 
     def create_embed(self):
 
+        description="\n".join(self.chunks[self.current_page])
+
         # 2. 안전하게 4000자에서 커트 (디스코드 제한은 4096자)
         if len(description) > 4000:
             description = description[:3997] + "..."
 
         embed = discord.Embed(
             title=self.title,
-            description="\n".join(self.chunks[self.current_page]),
+            description=description,
             color=0x1ABC9C,
         )
         # 푸터 날짜 고정 또는 datetime.now().strftime('%Y-%m-%d %H:%M') 사용 가능
@@ -301,7 +303,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=14, minute=29, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=14, minute=33, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
