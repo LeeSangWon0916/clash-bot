@@ -217,56 +217,54 @@ intents = discord.Intents.default()
 intents.message_content = True
 client = discord.Client(intents=intents)
 
-def get_top_players():
+async def get_top_players():
     url = "https://api.clashofclans.com/v1/locations/32000216/rankings/players"
     headers = {"Authorization": f"Bearer {API_KEY}"}
 
-    # Koyeb 환경 변수에 넣은 프록시 주소 가져오기
-    proxy_url = os.environ.get("PROXY_URL")
-    proxies = {
-        "http": proxy_url,
-        "https": proxy_url,
-    }
+    # 1. 실시간으로 Webshare에서 살아있는 프록시 주소 가져오기
+    proxy_url = await get_live_proxy()
 
     try:
-        # 프록시를 통해 요청 (timeout은 넉넉히 15초)
-        res = requests.get(url, headers=headers, proxies=proxies, timeout=15)
-        print(f"[API 호출 상태 코드] {res.status_code}")
-        
-        if res.status_code == 200:
-            return res.json().get("items", [])
-        else:
-            print(f"[API 오류] {res.text}")
-            return []
+        # 2. aiohttp를 사용하여 비동기로 프록시 요청
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=headers, proxy=proxy_url, timeout=15) as res:
+                print(f"[API 호출 상태 코드] {res.status}")
+                
+                if res.status == 200:
+                    data = await res.json()
+                    return data.get("items", [])
+                else:
+                    # aiohttp에서 에러 본문을 텍스트로 찍을 때는 await가 필요함
+                    error_text = await res.text()
+                    print(f"[API 오류] {error_text}")
+                    return []
+                    
     except Exception as e:
         print(f"프록시 연결 실패: {e}")
         return []
     
-def get_clan_members(clan_tag):
+async def get_clan_members(clan_tag):
     # 1. 태그 정규화 (# 제거 후 %23 부착)
     clean_tag = clan_tag.strip().replace("#", "")
     url = f"https://api.clashofclans.com/v1/clans/%23{clean_tag}/members"
     headers = {"Authorization": f"Bearer {API_KEY}"}
     
     # 2. 프록시 설정 (Koyeb 환경 변수에서 가져오기)
-    proxy_url = os.environ.get("PROXY_URL")
-    proxies = {
-        "http": proxy_url,
-        "https": proxy_url,
-    }
+    proxy_url = await get_live_proxy()
 
     try:
-        # 3. 프록시와 타임아웃을 포함하여 요청
-        res = requests.get(url, headers=headers, proxies=proxies, timeout=15)
-        
-        if res.status_code == 200:
-            data = res.json()
-            members = data.get("items", [])
-            # 트로피 순으로 정렬해서 반환
-            return sorted(members, key=lambda x: int(x.get('trophies', 0)), reverse=True)
-        else:
-            print(f"[클랜 API 에러] 상태 코드: {res.status_code}")
-            return []
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=headers, proxy=proxy_url, timeout=15) as res:
+                
+                if res.status == 200:
+                    data = await res.json()
+                    members = data.get("items", [])
+                    
+                    # 4. 트로피 순으로 정렬해서 반환
+                    return sorted(members, key=lambda x: int(x.get('trophies', 0)), reverse=True)
+                else:
+                    print(f"[클랜 API 에러] 상태 코드: {res.status}")
+                    return []
             
     except Exception as e:
         print(f"[클랜 API 예외 발생] {e}")
@@ -278,7 +276,8 @@ async def send_ranking_with_buttons(channel, players, title, fetch_func):
     # 1. 채널 B(연합 랭킹)일 때만 미리 상세 데이터(Global Rank) 수집
     if "Korea Ranking" not in title:
         api_headers = {"Authorization": f"Bearer {API_KEY}"}
-        proxy_url = os.environ.get("PROXY_URL")
+        proxy_url = await get_live_proxy()
+        print(f"[전송 시작] 현재 사용 중인 실시간 프록시: {proxy_url}")
         
         async with aiohttp.ClientSession() as session:
             for p in players:
@@ -297,13 +296,41 @@ async def send_ranking_with_buttons(channel, players, title, fetch_func):
     view = RankingView(players, title, fetch_func)
     await channel.send(embed=view.create_embed(), view=view)
 
+# 🏷️ 1. 실시간으로 Webshare에서 살아있는 프록시 주소를 가져오는 함수
+async def get_live_proxy():
+    api_token = os.environ.get("WEBSHARE_API_KEY")
+    if not api_token:
+        # API 키가 없으면 기존 고정 환경변수나 None 반환
+        return os.environ.get("PROXY_URL")
+        
+    url = "https://proxy.webshare.io/api/v2/proxy/list/?page=1&page_size=10"
+    headers = {"Authorization": f"Token {api_token}"}
+    
+    try:
+        # aiohttp를 새로 열어서 빠르게 리스트만 긁어옴
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=headers, timeout=5) as res:
+                if res.status == 200:
+                    data = await res.json()
+                    # 목록 중 첫 번째(index 0) 프록시 정보 사용
+                    first_proxy = data["results"][0]
+                    ip = first_proxy["proxy_address"]
+                    port = first_proxy["port"]
+                    username = first_proxy["username"]
+                    password = first_proxy["password"]
+                    return f"http://{username}:{password}@{ip}:{port}"
+    except Exception as e:
+        print(f"[Webshare API 오류] 프록시 주소 로드 실패: {e}")
+        
+    return os.environ.get("PROXY_URL")
+
 
 async def daily_task(channel_a, channel_b):
     KST = timezone(timedelta(hours=9))
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=14, minute=3, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=16, minute=35, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
@@ -315,7 +342,7 @@ async def daily_task(channel_a, channel_b):
         now_kst = datetime.now(KST)
         date_str = now_kst.strftime("%m/%d-%-I %p")
         
-        players = get_top_players()
+        players = await get_top_players()
         if players:
             await send_ranking_with_buttons(channel_a, players, f"Korea Ranking ({date_str})", fetch_func=get_top_players)
 
@@ -338,7 +365,7 @@ async def daily_task(channel_a, channel_b):
             tag = info["tag"]
             if not tag: continue # 태그가 설정 안 되어 있으면 패스
             
-            members = get_clan_members(tag)
+            members = await get_clan_members(tag)
             if members:
                 for m in members:
                     league_tier = m.get("leagueTier", {})
