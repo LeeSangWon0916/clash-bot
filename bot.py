@@ -220,25 +220,48 @@ client = discord.Client(intents=intents)
 
 def get_top_players():
     url = "https://api.clashofclans.com/v1/locations/32000216/rankings/players"
-    headers = {"Authorization": f"Bearer {API_KEY}"}
 
-    # Koyeb 환경 변수에 넣은 프록시 주소 가져오기
+    headers = {
+        "Authorization": f"Bearer {API_KEY}"
+    }
+
+    # Koyeb 환경 변수에 저장된 프록시 주소
     proxy_url = os.environ.get("PROXY_URL")
+
     proxies = {
         "http": proxy_url,
         "https": proxy_url,
     }
 
     try:
-        # 프록시를 통해 요청 (timeout은 넉넉히 15초)
-        res = requests.get(url, headers=headers, proxies=proxies, timeout=15)
+        # 프록시를 통한 API 요청
+        res = requests.get(
+            url,
+            headers=headers,
+            proxies=proxies,
+            timeout=15
+        )
+
         print(f"[API 호출 상태 코드] {res.status_code}")
-        
+
         if res.status_code == 200:
-            return res.json().get("items", [])
+            players = res.json().get("items", [])
+
+            # 출력
+            for idx, p in enumerate(players, start=1):
+                print(
+                    f"{idx}. "
+                    f"{p.get('name', 'Unknown')} "
+                    f"({p.get('tag', 'NoTag')}) "
+                    f"- {p.get('trophies', 0)} trophies"
+                )
+
+            return players
+
         else:
             print(f"[API 오류] {res.text}")
             return []
+
     except Exception as e:
         print(f"프록시 연결 실패: {e}")
         return []
@@ -247,29 +270,57 @@ def get_clan_members(clan_tag):
     # 1. 태그 정규화 (# 제거 후 %23 부착)
     clean_tag = clan_tag.strip().replace("#", "")
     url = f"https://api.clashofclans.com/v1/clans/%23{clean_tag}/members"
-    headers = {"Authorization": f"Bearer {API_KEY}"}
-    
-    # 2. 프록시 설정 (Koyeb/Heroku 환경 변수에서 가져오기)
+
+    headers = {
+        "Authorization": f"Bearer {API_KEY}"
+    }
+
+    # 2. 프록시 설정 (Koyeb 환경 변수에서 가져오기)
     proxy_url = os.environ.get("PROXY_URL")
+
     proxies = {
         "http": proxy_url,
         "https": proxy_url,
     }
 
     try:
-        # 3. 프록시와 타임아웃을 포함하여 요청
-        res = requests.get(url, headers=headers, proxies=proxies, timeout=15)
-        
+        # 3. 프록시 + 타임아웃 포함 요청
+        res = requests.get(
+            url,
+            headers=headers,
+            proxies=proxies,
+            timeout=15
+        )
+
         if res.status_code == 200:
             data = res.json()
+
             members = data.get("items", [])
-            # 트로피 순으로 정렬해서 반환
-            return sorted(members, key=lambda x: int(x.get('trophies', 0)), reverse=True)
+
+            # 트로피 기준 내림차순 정렬
+            sorted_members = sorted(
+                members,
+                key=lambda x: int(x.get("trophies", 0)),
+                reverse=True
+            )
+
+            # 출력
+            for m in sorted_members:
+                print(
+                    f"{m.get('name', 'Unknown')} "
+                    f"({m.get('tag', 'NoTag')}) "
+                    f"- {m.get('trophies', 0)} trophies"
+                )
+
+            return sorted_members
+
         else:
             print(f"[클랜 API 에러] 상태 코드: {res.status_code}")
+            print(res.text)
             return []
+
     except Exception as e:
-        print(f"[클랜 API 예외 발생] 프록시 연결 실패: {e}")
+        print(f"[예외 발생] {e}")
         return []
 
 # 국내 랭킹 명령어를 처리하는 함수
@@ -279,26 +330,39 @@ async def send_ranking_with_buttons(channel, players, title, fetch_func):
     if "Korea Ranking" not in title:
         api_headers = {"Authorization": f"Bearer {API_KEY}"}
         proxy_url = os.environ.get("PROXY_URL")
-        proxies = {
-            "http": proxy_url,
-            "https": proxy_url,
-        }
-        
-        for p in players:
-            safe_tag = p['tag'].replace("#", "%23")
-            try:
-                res = requests.get(
-                    f"https://api.clashofclans.com/v1/players/{safe_tag}", 
-                    headers=api_headers, 
-                    proxies=proxies, 
-                    timeout=5
+        async with aiohttp.ClientSession() as session:
+            for p in players:
+                safe_tag = p['tag'].replace("#", "%23")
+
+                try:
+                    async with session.get(
+                        f"https://api.clashofclans.com/v1/players/{safe_tag}",
+                        headers=api_headers,
+                        proxy=proxy_url,
+                        timeout=5
+                    ) as res:
+
+                        if res.status == 200:
+                            data = await res.json()
+
+                            p['global_rank'] = (
+                                data.get("legendStatistics", {})
+                                    .get("currentSeason", {})
+                                    .get("rank", "0")
+                            )
+
+                        else:
+                            p['global_rank'] = "N/A"
+
+                except Exception as e:
+                    p['global_rank'] = "N/A"
+
+                print(
+                    f"{p.get('name', 'Unknown')} "
+                    f"({p['tag']}) -> Global Rank: {p['global_rank']}"
                 )
-                if res.status_code == 200:
-                    data = res.json()
-                    p['global_rank'] = data.get("legendStatistics", {}).get("currentSeason", {}).get("rank", "0")
-            except:
-                p['global_rank'] = "N/A"
-            time.sleep(0.01)
+
+                await asyncio.sleep(0.01)
     
     # 3. 버튼 뷰 생성 및 전송
     view = RankingView(players, title, fetch_func)
@@ -310,7 +374,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=16, minute=48, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=13, minute=41, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
