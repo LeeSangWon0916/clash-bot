@@ -248,13 +248,13 @@ def get_top_players():
             players = res.json().get("items", [])
 
             # 출력
-            for idx, p in enumerate(players, start=1):
+            '''for idx, p in enumerate(players, start=1):
                 print(
                     f"{idx}. "
                     f"{p.get('name', 'Unknown')} "
                     f"({p.get('tag', 'NoTag')}) "
                     f"- {p.get('trophies', 0)} trophies"
-                )
+                )'''
 
             return players
 
@@ -305,12 +305,12 @@ def get_clan_members(clan_tag):
             )
 
             # 출력
-            for m in sorted_members:
+            '''for m in sorted_members:
                 print(
                     f"{m.get('name', 'Unknown')} "
                     f"({m.get('tag', 'NoTag')}) "
                     f"- {m.get('trophies', 0)} trophies"
-                )
+                )'''
 
             return sorted_members
 
@@ -374,7 +374,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=13, minute=41, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=13, minute=51, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
@@ -421,6 +421,8 @@ async def daily_task(channel_a, channel_b):
         if all_combined_members:
             # 1. 전체 인원을 트로피 순으로 정렬
             all_combined_members.sort(key=lambda x: int(x.get('trophies', 0)), reverse=True)
+
+            all_combined_members = [m for m in all_combined_members if int(m.get('trophies', 0)) >= 4000]
             
             # 2. 상위 50명만 컷
             top_50_combined = all_combined_members[:100]
