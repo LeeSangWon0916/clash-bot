@@ -400,7 +400,7 @@ async def daily_task(channel_a, channel_b):
             {"name": "Onda2", "tag": os.environ.get("CLAN_TAG_ONDA2")},
             {"name": "On다", "tag": os.environ.get("CLAN_TAG_ONDA")},
             {"name": "KoreaClan", "tag": os.environ.get("CLAN_TAG_KOREA")},
-            {"name": "백의CWL", "tag": os.environ.get("CLAN_TAG_KOREA")}
+            {"name": "백의CWL", "tag": os.environ.get("CLAN_TAG_CWL")}
         ]
 
         all_combined_members = []
