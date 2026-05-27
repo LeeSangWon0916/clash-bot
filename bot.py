@@ -163,6 +163,8 @@ class RankingView(View):
                     line = f"{rank_val}. [**{display_text} (On다)**](https://clashofclans.com)"
                 elif ("백의CWL" in clan_name):
                     line = f"{rank_val}. [**{display_text} (백의CWL)**](https://clashofclans.com)"
+                elif ("노력" in clan_name):
+                    line = f"{rank_val}. [**{display_text} (노력)**](https://clashofclans.com)"
                 else:
                     line = f"{rank_val}. {player_name} ({trophy_val})"
             else:
@@ -374,7 +376,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=14, minute=3, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=13, minute=12, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
@@ -400,7 +402,8 @@ async def daily_task(channel_a, channel_b):
             {"name": "Onda2", "tag": os.environ.get("CLAN_TAG_ONDA2")},
             {"name": "On다", "tag": os.environ.get("CLAN_TAG_ONDA")},
             {"name": "KoreaClan", "tag": os.environ.get("CLAN_TAG_KOREA")},
-            {"name": "백의CWL", "tag": os.environ.get("CLAN_TAG_CWL")}
+            {"name": "백의CWL", "tag": os.environ.get("CLAN_TAG_CWL")},
+            {"name": "노력", "tag": os.environ.get("CLAN_TAG_NO")}
         ]
 
         all_combined_members = []
