@@ -268,56 +268,6 @@ def get_top_players():
         print(f"프록시 연결 실패: {e}")
         return []
     
-'''def get_clan_members(clan_tag):
-    # 1. 태그 정규화 (# 제거 후 %23 부착)
-    clean_tag = clan_tag.strip().replace("#", "")
-    url = f"https://api.clashofclans.com/v1/clans/%23{clean_tag}/members"
-
-    headers = {
-        "Authorization": f"Bearer {API_KEY}"
-    }
-
-    # 2. 프록시 설정 (Koyeb 환경 변수에서 가져오기)
-    proxy_url = os.environ.get("PROXY_URL")
-
-    proxies = {
-        "http": proxy_url,
-        "https": proxy_url,
-    }
-
-    try:
-        # 3. 프록시 + 타임아웃 포함 요청
-        res = requests.get(
-            url,
-            headers=headers,
-            proxies=proxies,
-            timeout=15
-        )
-
-        if res.status_code == 200:
-            data = res.json()
-
-            members = data.get("items", [])
-
-            # 트로피 기준 내림차순 정렬
-            sorted_members = sorted(
-                members,
-                key=lambda x: int(x.get("trophies", 0)),
-                reverse=True
-            )
-
-            return sorted_members
-
-        else:
-            print(f"[클랜 API 에러] 상태 코드: {res.status_code}")
-            print(res.text)
-            return []
-
-    except Exception as e:
-        print(f"[예외 발생] {e}")
-        return []'''
-
-
 async def get_clan_members(clan_tag):
     # 1. 태그 정규화 (# 제거 후 %23 부착)
     clean_tag = clan_tag.strip().replace("#", "")
@@ -360,6 +310,8 @@ async def get_clan_members(clan_tag):
 # 국내 랭킹 명령어를 처리하는 함수
 async def send_ranking_with_buttons(channel, players, title, fetch_func):
 
+    print("SEND", title, channel.id)
+
     # 1. 채널 B(연합 랭킹)일 때만 미리 상세 데이터(Global Rank) 수집
     if "Korea Ranking" not in title:
         api_headers = {"Authorization": f"Bearer {API_KEY}"}
@@ -391,11 +343,6 @@ async def send_ranking_with_buttons(channel, players, title, fetch_func):
                 except Exception as e:
                     p['global_rank'] = "N/A"
 
-                print(
-                    f"{p.get('name', 'Unknown')} "
-                    f"({p['tag']}) -> Global Rank: {p['global_rank']}"
-                )
-
                 await asyncio.sleep(0.01)
     
     # 3. 버튼 뷰 생성 및 전송
@@ -408,7 +355,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=14, minute=12, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=14, minute=25, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
@@ -446,10 +393,6 @@ async def daily_task(channel_a, channel_b):
             
             members = await get_clan_members(tag)
             if members:
-                '''# 💡 첫 번째 멤버 데이터만 샘플로 로그에 출력해서 구조 확인
-                print(f"\n🔍 [{info['name']}] 클랜 첫 번째 멤버 샘플 데이터:")
-                print(json.dumps(members[0], indent=4, ensure_ascii=False))
-                print("-" * 50)'''
                 for m in members:
                     league_tier = m.get("leagueTier", {})
                     if league_tier and league_tier.get("name") == "Legend I":
