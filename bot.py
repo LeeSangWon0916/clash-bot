@@ -408,7 +408,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=13, minute=57, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=14, minute=1, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
@@ -446,15 +446,16 @@ async def daily_task(channel_a, channel_b):
             
             members = await get_clan_members(tag)
             if members:
-                print("members 있음.")
                 for m in members:
                     league_tier = m.get("leagueTier", {})
                     if league_tier and league_tier.get("name") == "Legend League":
+                        print("리그티어 조회됨")
                         m['clan'] = {'name': info["name"]}
                         m['clan_tag'] = tag
                         all_combined_members.append(m)
 
         if all_combined_members:
+            print(len(all_combined_members))
             # 1. 전체 인원을 트로피 순으로 정렬
             all_combined_members.sort(key=lambda x: int(x.get('trophies', 0)), reverse=True)
 
