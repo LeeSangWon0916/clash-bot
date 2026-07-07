@@ -268,7 +268,7 @@ def get_top_players():
         print(f"프록시 연결 실패: {e}")
         return []
     
-def get_clan_members(clan_tag):
+'''def get_clan_members(clan_tag):
     # 1. 태그 정규화 (# 제거 후 %23 부착)
     clean_tag = clan_tag.strip().replace("#", "")
     url = f"https://api.clashofclans.com/v1/clans/%23{clean_tag}/members"
@@ -306,20 +306,52 @@ def get_clan_members(clan_tag):
                 reverse=True
             )
 
-            # 출력
-            '''for m in sorted_members:
-                print(
-                    f"{m.get('name', 'Unknown')} "
-                    f"({m.get('tag', 'NoTag')}) "
-                    f"- {m.get('trophies', 0)} trophies"
-                )'''
-
             return sorted_members
 
         else:
             print(f"[클랜 API 에러] 상태 코드: {res.status_code}")
             print(res.text)
             return []
+
+    except Exception as e:
+        print(f"[예외 발생] {e}")
+        return []'''
+
+
+async def get_clan_members(clan_tag):
+    # 1. 태그 정규화 (# 제거 후 %23 부착)
+    clean_tag = clan_tag.strip().replace("#", "")
+    url = f"https://api.clashofclans.com/v1/clans/%23{clean_tag}/members"
+
+    headers = {
+        "Authorization": f"Bearer {API_KEY}"
+    }
+
+    # 2. 프록시 설정 (Koyeb 환경 변수에서 가져오기)
+    proxy_url = os.environ.get("PROXY_URL")
+
+    try:
+        # 3. aiohttp를 사용하여 비동기로 프록시 요청
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=headers, proxy=proxy_url, timeout=15) as res:
+
+                if res.status == 200:
+                    data = await res.json()
+                    members = data.get("items", [])
+
+                    # 트로피 기준 내림차순 정렬
+                    sorted_members = sorted(
+                        members,
+                        key=lambda x: int(x.get("trophies", 0)),
+                        reverse=True
+                    )
+                    return sorted_members
+
+                else:
+                    print(f"[클랜 API 에러] 상태 코드: {res.status}")
+                    error_text = await res.text()
+                    print(error_text)
+                    return []
 
     except Exception as e:
         print(f"[예외 발생] {e}")
@@ -376,7 +408,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=14, minute=4, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=13, minute=25, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
@@ -412,7 +444,7 @@ async def daily_task(channel_a, channel_b):
             tag = info["tag"]
             if not tag: continue # 태그가 설정 안 되어 있으면 패스
             
-            members = get_clan_members(tag)
+            members = await get_clan_members(tag)
             if members:
                 for m in members:
                     league_tier = m.get("leagueTier", {})
