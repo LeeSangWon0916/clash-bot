@@ -408,7 +408,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=13, minute=25, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=13, minute=33, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
@@ -478,8 +478,12 @@ async def daily_task(channel_a, channel_b):
         print(f"[{datetime.now(KST).strftime('%Y-%m-%d %H:%M:%S')}] 모든 랭킹 전송 완료!")
         await asyncio.sleep(60)
 
+# 🔥 1. 최초 실행 여부를 확인하기 위한 플래그 변수 선언
+is_task_started = False
+
 @client.event
 async def on_ready():
+    global is_task_started  # 전역 변수 사용 선언
     print(f"Logged in as {client.user}")
     
     try:
@@ -489,10 +493,13 @@ async def on_ready():
         
         print(f"채널 연결 성공: {channel_a.name}, {channel_b.name}")
         
-        # daily_task에 두 채널을 모두 전달
-        asyncio.create_task(daily_task(channel_a, channel_b))
-        
-        print("모든 자동화 작업(멀티 채널)이 시작되었습니다.")
+        # 🔥 2. 플래그가 False일 때(최초 1회)만 루프 실행
+        if not is_task_started:
+            asyncio.create_task(daily_task(channel_a, channel_b))
+            is_task_started = True  # 실행 상태로 변경
+            print("모든 자동화 작업(멀티 채널)이 시작되었습니다.")
+        else:
+            print("🔄 재연결 감지: 자동화 루프가 이미 실행 중이므로 중복 생성을 건너뜁니다.")
         
     except discord.errors.Forbidden:
         print("❌ 권한 오류: 봇이 채널 중 하나에 접근할 권한이 없습니다.")
