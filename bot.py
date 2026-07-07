@@ -408,7 +408,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=14, minute=8, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=14, minute=12, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
@@ -446,13 +446,13 @@ async def daily_task(channel_a, channel_b):
             
             members = await get_clan_members(tag)
             if members:
-                # 💡 첫 번째 멤버 데이터만 샘플로 로그에 출력해서 구조 확인
+                '''# 💡 첫 번째 멤버 데이터만 샘플로 로그에 출력해서 구조 확인
                 print(f"\n🔍 [{info['name']}] 클랜 첫 번째 멤버 샘플 데이터:")
                 print(json.dumps(members[0], indent=4, ensure_ascii=False))
-                print("-" * 50)
+                print("-" * 50)'''
                 for m in members:
                     league_tier = m.get("leagueTier", {})
-                    if league_tier and league_tier.get("name") == "Legend League":
+                    if league_tier and league_tier.get("name") == "Legend I":
                         m['clan'] = {'name': info["name"]}
                         m['clan_tag'] = tag
                         all_combined_members.append(m)
