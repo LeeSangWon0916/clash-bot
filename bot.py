@@ -408,7 +408,7 @@ async def daily_task(channel_a, channel_b):
 
     while True:
         now_kst = datetime.now(KST)
-        target_time = now_kst.replace(hour=13, minute=36, second=0, microsecond=0)
+        target_time = now_kst.replace(hour=13, minute=57, second=0, microsecond=0)
 
         if now_kst >= target_time:
             target_time += timedelta(days=1)
@@ -446,6 +446,7 @@ async def daily_task(channel_a, channel_b):
             
             members = await get_clan_members(tag)
             if members:
+                print("members 있음.")
                 for m in members:
                     league_tier = m.get("leagueTier", {})
                     if league_tier and league_tier.get("name") == "Legend League":
